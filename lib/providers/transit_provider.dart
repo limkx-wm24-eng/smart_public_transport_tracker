@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../core/constants.dart';
+import '../models/recommended_route.dart';
 import '../models/route_model.dart';
 import '../models/stop.dart';
 import '../models/vehicle_eta.dart';
@@ -11,8 +12,9 @@ import '../services/database_service.dart';
 import '../services/eta_service.dart';
 import '../services/gtfs_realtime_service.dart';
 import '../services/gtfs_static_service.dart';
+import '../services/route_recommendation_service.dart';
 
-/// Member A's module — live map + tracking.
+/// live map + tracking.
 ///
 /// Owns:
 ///  - the cached list of stops (loaded from SQLite, refreshed from
@@ -25,6 +27,8 @@ class TransitProvider extends ChangeNotifier {
   final GtfsRealtimeService _realtimeService = GtfsRealtimeService();
   final DatabaseService _db = DatabaseService.instance;
   final EtaService _etaService = EtaService();
+  final RouteRecommendationService _recommendationService =
+  RouteRecommendationService();
 
   List<Stop> _stops = [];
   List<TransitRoute> _routes = [];
@@ -103,7 +107,7 @@ class TransitProvider extends ChangeNotifier {
       // Don't wipe existing markers on a transient failure — keep showing
       // the last known positions rather than an empty map.
       _vehiclesStatus =
-          _vehicles.isEmpty ? LoadStatus.error : LoadStatus.ready;
+      _vehicles.isEmpty ? LoadStatus.error : LoadStatus.ready;
       _errorMessage = 'Live tracking temporarily unavailable: $e';
     }
     notifyListeners();
@@ -113,7 +117,7 @@ class TransitProvider extends ChangeNotifier {
     _pollTimer?.cancel();
     _pollTimer = Timer.periodic(
       AppConstants.realtimePollInterval,
-      (_) => refreshVehicles(),
+          (_) => refreshVehicles(),
     );
   }
 
@@ -121,6 +125,39 @@ class TransitProvider extends ChangeNotifier {
     if (query.trim().isEmpty) return [];
     final q = query.toLowerCase();
     return _stops.where((s) => s.name.toLowerCase().contains(q)).toList();
+  }
+
+  /// Search cached routes by bus number/line name — e.g. "250" matches
+  /// both "250" and "T250".
+  List<TransitRoute> searchRoutesLocally(String query) {
+    if (query.trim().isEmpty) return [];
+    final q = query.toLowerCase();
+    return _routes
+        .where((r) =>
+    r.shortName.toLowerCase().contains(q) ||
+        r.longName.toLowerCase().contains(q))
+        .toList();
+  }
+
+  /// Vehicles currently running on a given route — used by the route
+  /// detail screen to show live buses for that line.
+  List<VehiclePosition> vehiclesForRoute(String routeId) {
+    return _vehicles.where((v) => v.routeId == routeId).toList();
+  }
+
+  /// Bus lines recommended for the user based on their current GPS
+  /// location — a route is recommended when it has a live vehicle nearby.
+  /// See RouteRecommendationService for how "nearby" is defined.
+  List<RecommendedRoute> recommendedRoutes({
+    required double userLat,
+    required double userLng,
+  }) {
+    return _recommendationService.recommendNearby(
+      userLat: userLat,
+      userLng: userLng,
+      vehicles: _vehicles,
+      routes: _routes,
+    );
   }
 
   @override

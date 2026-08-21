@@ -41,7 +41,7 @@ class _RootNavState extends State<RootNav> {
           NavigationDestination(
             icon: Icon(Icons.search_outlined),
             selectedIcon: Icon(Icons.search),
-            label: 'Search',
+            label: 'Bus Lines',
           ),
           NavigationDestination(
             icon: Icon(Icons.star_outline),

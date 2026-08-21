@@ -3,15 +3,10 @@ import 'package:provider/provider.dart';
 
 import '../models/stop.dart';
 import '../models/vehicle_eta.dart';
-import '../providers/favourites_provider.dart';
 import '../providers/transit_provider.dart';
 
-/// Shows live ETAs for a single stop. Reached by tapping a stop from
-/// Search or Favourites.
-///
-/// The ETA list rebuilds every time TransitProvider gets fresh vehicle
-/// positions (every ~20s, see AppConstants.realtimePollInterval), so this
-/// screen updates itself automatically — no manual refresh needed.
+/// Shows live ETAs for a single stop. Reached by tapping a stop dot on
+/// the map.
 class StopDetailScreen extends StatelessWidget {
   final Stop stop;
 
@@ -20,21 +15,11 @@ class StopDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final transit = context.watch<TransitProvider>();
-    final favourites = context.watch<FavouritesProvider>();
     final etas = transit.etasForStop(stop);
-    final isFav = favourites.isFavourite(stop.stopId);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(stop.name),
-        actions: [
-          IconButton(
-            icon: Icon(isFav ? Icons.star : Icons.star_border,
-                color: isFav ? Colors.amber : null),
-            onPressed: () =>
-                context.read<FavouritesProvider>().toggleFavourite(stop),
-          ),
-        ],
       ),
       body: Column(
         children: [
@@ -49,7 +34,7 @@ class StopDetailScreen extends StatelessWidget {
                 Expanded(
                   child: Text(
                     'ETA is estimated from live bus location, not an '
-                    'official schedule prediction.',
+                        'official schedule prediction.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
@@ -59,21 +44,21 @@ class StopDetailScreen extends StatelessWidget {
           Expanded(
             child: etas.isEmpty
                 ? const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Text(
-                        'No buses currently tracked near this stop.\n'
-                        'Try again shortly — the live feed refreshes every '
-                        '20 seconds.',
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  )
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  'No buses currently tracked near this stop.\n'
+                      'Try again shortly — the live feed refreshes every '
+                      '20 seconds.',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            )
                 : ListView.builder(
-                    itemCount: etas.length,
-                    itemBuilder: (context, index) =>
-                        _EtaTile(eta: etas[index]),
-                  ),
+              itemCount: etas.length,
+              itemBuilder: (context, index) =>
+                  _EtaTile(eta: etas[index]),
+            ),
           ),
         ],
       ),
