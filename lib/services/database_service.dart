@@ -1,72 +1,41 @@
-import 'package:path/path.dart';
-import 'package:sqflite/sqflite.dart';
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/constants.dart';
-import '../models/stop.dart';
+import '../models/favourite_route.dart';
 import '../models/route_model.dart';
-import '../models/favourite_stop.dart';
+import '../models/stop.dart';
 
 /// Single source of truth for local (on-device) storage.
 ///
-/// Two tables:
-///  - `stops`      : cached copy of GTFS-Static stops (refreshed periodically)
-///  - `favourites` : user's saved stops (never expires, user-controlled)
+/// Uses `shared_preferences` rather than `sqflite` — sqflite only works on
+/// Android/iOS/desktop, not Flutter Web, and this app needs to run on web
+/// for quick UI testing as well as mobile. shared_preferences works
+/// everywhere, at the cost of being a simple key-value store rather than
+/// a real relational database: we store each collection (stops, routes,
+/// favourites) as one JSON-encoded string under a single key.
 ///
-/// This satisfies the assignment's "local + remote data saving methods"
-/// requirement — remote realtime data feeds the map, local SQLite backs
-/// search history and favourites.
+/// This is a deliberate trade-off worth noting in your report: fine for a
+/// dataset of a few thousand stops/routes, but a real production app at
+/// larger scale would want sqflite (mobile) + IndexedDB (web) instead,
+/// each behind a shared interface, so lookups don't require decoding the
+/// entire collection every time.
+///
+/// Keys used:
+///  - `stops_cache`         : JSON list of cached GTFS-Static stops
+///  - `stops_last_synced`   : ISO8601 timestamp of the last stops refresh
+///  - `routes_cache`        : JSON list of cached GTFS-Static routes
+///  - `favourite_routes`    : JSON list of the user's saved bus lines
 class DatabaseService {
   DatabaseService._internal();
   static final DatabaseService instance = DatabaseService._internal();
 
-  Database? _db;
+  SharedPreferences? _prefs;
 
-  Future<Database> get database async {
-    if (_db != null) return _db!;
-    _db = await _initDb();
-    return _db!;
-  }
-
-  Future<Database> _initDb() async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, AppConstants.dbName);
-
-    return openDatabase(
-      path,
-      version: AppConstants.dbVersion,
-      onCreate: (db, version) async {
-        await db.execute('''
-          CREATE TABLE stops (
-            stop_id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            lat REAL NOT NULL,
-            lng REAL NOT NULL
-          )
-        ''');
-        await db.execute('''
-          CREATE TABLE routes (
-            route_id TEXT PRIMARY KEY,
-            short_name TEXT NOT NULL,
-            long_name TEXT NOT NULL
-          )
-        ''');
-        await db.execute('''
-          CREATE TABLE favourites (
-            stop_id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            lat REAL NOT NULL,
-            lng REAL NOT NULL,
-            saved_at INTEGER NOT NULL
-          )
-        ''');
-        await db.execute('''
-          CREATE TABLE meta (
-            key TEXT PRIMARY KEY,
-            value TEXT NOT NULL
-          )
-        ''');
-      },
-    );
+  Future<SharedPreferences> get _prefsInstance async {
+    _prefs ??= await SharedPreferences.getInstance();
+    return _prefs!;
   }
 
   // ------------------------------------------------------------------
@@ -74,40 +43,31 @@ class DatabaseService {
   // ------------------------------------------------------------------
 
   Future<void> replaceStops(List<Stop> stops) async {
-    final db = await database;
-    final batch = db.batch();
-    batch.delete('stops');
-    for (final s in stops) {
-      batch.insert('stops', s.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace);
-    }
-    await batch.commit(noResult: true);
-    await _setMeta('stops_last_synced', DateTime.now().toIso8601String());
+    final prefs = await _prefsInstance;
+    final jsonList = stops.map((s) => s.toMap()).toList();
+    await prefs.setString('stops_cache', jsonEncode(jsonList));
+    await prefs.setString(
+        'stops_last_synced', DateTime.now().toIso8601String());
   }
 
   Future<List<Stop>> getAllStops() async {
-    final db = await database;
-    final rows = await db.query('stops');
-    return rows.map(Stop.fromMap).toList();
-  }
-
-  Future<List<Stop>> searchStops(String query) async {
-    final db = await database;
-    final rows = await db.query(
-      'stops',
-      where: 'name LIKE ?',
-      whereArgs: ['%$query%'],
-      limit: 30,
-    );
-    return rows.map(Stop.fromMap).toList();
+    final prefs = await _prefsInstance;
+    final raw = prefs.getString('stops_cache');
+    if (raw == null) return [];
+    final decoded = jsonDecode(raw) as List;
+    return decoded
+        .map((e) => Stop.fromMap(Map<String, dynamic>.from(e as Map)))
+        .toList();
   }
 
   Future<bool> shouldRefreshStops() async {
-    final lastSyncedStr = await _getMeta('stops_last_synced');
+    final prefs = await _prefsInstance;
+    final lastSyncedStr = prefs.getString('stops_last_synced');
     if (lastSyncedStr == null) return true;
     final lastSynced = DateTime.tryParse(lastSyncedStr);
     if (lastSynced == null) return true;
-    return DateTime.now().difference(lastSynced) > AppConstants.staticDataMaxAge;
+    return DateTime.now().difference(lastSynced) >
+        AppConstants.staticDataMaxAge;
   }
 
   // ------------------------------------------------------------------
@@ -116,67 +76,57 @@ class DatabaseService {
   // ------------------------------------------------------------------
 
   Future<void> replaceRoutes(List<TransitRoute> routes) async {
-    final db = await database;
-    final batch = db.batch();
-    batch.delete('routes');
-    for (final r in routes) {
-      batch.insert('routes', r.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace);
-    }
-    await batch.commit(noResult: true);
+    final prefs = await _prefsInstance;
+    final jsonList = routes.map((r) => r.toMap()).toList();
+    await prefs.setString('routes_cache', jsonEncode(jsonList));
   }
 
   Future<List<TransitRoute>> getAllRoutes() async {
-    final db = await database;
-    final rows = await db.query('routes');
-    return rows.map(TransitRoute.fromMap).toList();
+    final prefs = await _prefsInstance;
+    final raw = prefs.getString('routes_cache');
+    if (raw == null) return [];
+    final decoded = jsonDecode(raw) as List;
+    return decoded
+        .map((e) => TransitRoute.fromMap(Map<String, dynamic>.from(e as Map)))
+        .toList();
   }
 
   // ------------------------------------------------------------------
-  // Favourites (Member B's module)
+  // Favourite routes (bus lines) — the app's primary favourites feature
   // ------------------------------------------------------------------
 
-  Future<void> addFavourite(FavouriteStop fav) async {
-    final db = await database;
-    await db.insert('favourites', fav.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+  Future<void> addFavouriteRoute(FavouriteRoute fav) async {
+    final favs = await getFavouriteRoutes();
+    favs.removeWhere((f) => f.routeId == fav.routeId);
+    favs.insert(0, fav);
+    await _saveFavouriteRoutes(favs);
   }
 
-  Future<void> removeFavourite(String stopId) async {
-    final db = await database;
-    await db.delete('favourites', where: 'stop_id = ?', whereArgs: [stopId]);
+  Future<void> removeFavouriteRoute(String routeId) async {
+    final favs = await getFavouriteRoutes();
+    favs.removeWhere((f) => f.routeId == routeId);
+    await _saveFavouriteRoutes(favs);
   }
 
-  Future<List<FavouriteStop>> getFavourites() async {
-    final db = await database;
-    final rows = await db.query('favourites', orderBy: 'saved_at DESC');
-    return rows.map(FavouriteStop.fromMap).toList();
+  Future<List<FavouriteRoute>> getFavouriteRoutes() async {
+    final prefs = await _prefsInstance;
+    final raw = prefs.getString('favourite_routes');
+    if (raw == null) return [];
+    final decoded = jsonDecode(raw) as List;
+    return decoded
+        .map(
+            (e) => FavouriteRoute.fromMap(Map<String, dynamic>.from(e as Map)))
+        .toList();
   }
 
-  Future<bool> isFavourite(String stopId) async {
-    final db = await database;
-    final rows = await db.query('favourites',
-        where: 'stop_id = ?', whereArgs: [stopId], limit: 1);
-    return rows.isNotEmpty;
+  Future<bool> isFavouriteRoute(String routeId) async {
+    final favs = await getFavouriteRoutes();
+    return favs.any((f) => f.routeId == routeId);
   }
 
-  // ------------------------------------------------------------------
-  // Small key-value helper table
-  // ------------------------------------------------------------------
-
-  Future<void> _setMeta(String key, String value) async {
-    final db = await database;
-    await db.insert(
-      'meta',
-      {'key': key, 'value': value},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-  }
-
-  Future<String?> _getMeta(String key) async {
-    final db = await database;
-    final rows = await db.query('meta', where: 'key = ?', whereArgs: [key]);
-    if (rows.isEmpty) return null;
-    return rows.first['value'] as String;
+  Future<void> _saveFavouriteRoutes(List<FavouriteRoute> favs) async {
+    final prefs = await _prefsInstance;
+    final jsonList = favs.map((f) => f.toMap()).toList();
+    await prefs.setString('favourite_routes', jsonEncode(jsonList));
   }
 }
