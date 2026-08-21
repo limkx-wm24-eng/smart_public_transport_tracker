@@ -30,7 +30,11 @@ class _SearchScreenState extends State<SearchScreen> {
     final favourites = context.watch<FavouritesProvider>();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Search Stops')),
+      appBar: AppBar(
+        title: const Text(
+          'Search Stops TEST 123',
+        ),
+      ),
       body: Column(
         children: [
           Padding(
@@ -80,11 +84,17 @@ class _SearchScreenState extends State<SearchScreen> {
                     isFavourite: favourites.isFavourite(stop.stopId),
                     onToggleFavourite: () =>
                         context.read<FavouritesProvider>().toggleFavourite(stop),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => StopDetailScreen(stop: stop),
-                      ),
-                    ),
+                    onTap: () {
+                      debugPrint('CLICKED STOP: ${stop.name}');
+
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => StopDetailScreen(
+                            stop: stop,
+                          ),
+                        ),
+                      );
+                    },
                   );
                 },
               ),

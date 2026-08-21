@@ -11,6 +11,7 @@ class AppConstants {
   //   rapid-bus-mrtfeeder
   // ---------------------------------------------------------------------
   static const String gtfsCategory = 'rapid-bus-kl';
+  //static const String gtfsCategory = 'rapid-bus-mrtfeeder';
 
   static const String gtfsStaticBaseUrl =
       'https://api.data.gov.my/gtfs-static/prasarana';
