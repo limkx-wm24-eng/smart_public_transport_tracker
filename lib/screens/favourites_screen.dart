@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../models/route_model.dart';
+import '../models/stop.dart';
 import '../providers/favourites_provider.dart';
-import '../widgets/route_list_tile.dart';
-import 'route_detail_screen.dart';
+import '../widgets/stop_list_tile.dart';
+import 'stop_detail_screen.dart';
 
 class FavouritesScreen extends StatelessWidget {
   const FavouritesScreen({super.key});
@@ -14,14 +14,15 @@ class FavouritesScreen extends StatelessWidget {
     final favourites = context.watch<FavouritesProvider>();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Favourite Lines')),
+      appBar: AppBar(title: const Text('Favourite Stops')),
       body: favourites.favourites.isEmpty
           ? const Center(
         child: Padding(
           padding: EdgeInsets.all(24),
           child: Text(
-            'No favourite bus lines yet.\n'
-                'Save one from the Bus Lines tab to see it here.',
+            'No favourite stops yet.\n'
+                'Save one from the Search tab or a stop\'s detail screen '
+                'to see it here.',
             textAlign: TextAlign.center,
           ),
         ),
@@ -30,19 +31,20 @@ class FavouritesScreen extends StatelessWidget {
         itemCount: favourites.favourites.length,
         itemBuilder: (context, index) {
           final fav = favourites.favourites[index];
-          final route = TransitRoute(
-            routeId: fav.routeId,
-            shortName: fav.shortName,
-            longName: fav.longName,
+          final stop = Stop(
+            stopId: fav.stopId,
+            name: fav.name,
+            lat: fav.lat,
+            lng: fav.lng,
           );
-          return RouteListTile(
-            route: route,
+          return StopListTile(
+            stop: stop,
             isFavourite: true,
             onToggleFavourite: () =>
-                context.read<FavouritesProvider>().toggleFavourite(route),
+                context.read<FavouritesProvider>().toggleFavourite(stop),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => RouteDetailScreen(route: route),
+                builder: (_) => StopDetailScreen(stop: stop),
               ),
             ),
           );

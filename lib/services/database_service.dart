@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/constants.dart';
-import '../models/favourite_route.dart';
+import '../models/favourite_stop.dart';
 import '../models/route_model.dart';
 import '../models/stop.dart';
 
@@ -26,7 +26,7 @@ import '../models/stop.dart';
 ///  - `stops_cache`         : JSON list of cached GTFS-Static stops
 ///  - `stops_last_synced`   : ISO8601 timestamp of the last stops refresh
 ///  - `routes_cache`        : JSON list of cached GTFS-Static routes
-///  - `favourite_routes`    : JSON list of the user's saved bus lines
+///  - `favourites`          : JSON list of the user's saved stops
 class DatabaseService {
   DatabaseService._internal();
   static final DatabaseService instance = DatabaseService._internal();
@@ -71,8 +71,8 @@ class DatabaseService {
   }
 
   // ------------------------------------------------------------------
-  // Routes cache (populated from GTFS-Static, used to label ETAs with
-  // human-readable bus numbers instead of raw route_id)
+  // Routes cache (populated from GTFS-Static, used to label live buses
+  // with human-readable bus numbers instead of raw route_id)
   // ------------------------------------------------------------------
 
   Future<void> replaceRoutes(List<TransitRoute> routes) async {
@@ -92,41 +92,40 @@ class DatabaseService {
   }
 
   // ------------------------------------------------------------------
-  // Favourite routes (bus lines) — the app's primary favourites feature
+  // Favourite stops — the app's favourites feature
   // ------------------------------------------------------------------
 
-  Future<void> addFavouriteRoute(FavouriteRoute fav) async {
-    final favs = await getFavouriteRoutes();
-    favs.removeWhere((f) => f.routeId == fav.routeId);
+  Future<void> addFavourite(FavouriteStop fav) async {
+    final favs = await getFavourites();
+    favs.removeWhere((f) => f.stopId == fav.stopId);
     favs.insert(0, fav);
-    await _saveFavouriteRoutes(favs);
+    await _saveFavourites(favs);
   }
 
-  Future<void> removeFavouriteRoute(String routeId) async {
-    final favs = await getFavouriteRoutes();
-    favs.removeWhere((f) => f.routeId == routeId);
-    await _saveFavouriteRoutes(favs);
+  Future<void> removeFavourite(String stopId) async {
+    final favs = await getFavourites();
+    favs.removeWhere((f) => f.stopId == stopId);
+    await _saveFavourites(favs);
   }
 
-  Future<List<FavouriteRoute>> getFavouriteRoutes() async {
+  Future<List<FavouriteStop>> getFavourites() async {
     final prefs = await _prefsInstance;
-    final raw = prefs.getString('favourite_routes');
+    final raw = prefs.getString('favourites');
     if (raw == null) return [];
     final decoded = jsonDecode(raw) as List;
     return decoded
-        .map(
-            (e) => FavouriteRoute.fromMap(Map<String, dynamic>.from(e as Map)))
+        .map((e) => FavouriteStop.fromMap(Map<String, dynamic>.from(e as Map)))
         .toList();
   }
 
-  Future<bool> isFavouriteRoute(String routeId) async {
-    final favs = await getFavouriteRoutes();
-    return favs.any((f) => f.routeId == routeId);
+  Future<bool> isFavourite(String stopId) async {
+    final favs = await getFavourites();
+    return favs.any((f) => f.stopId == stopId);
   }
 
-  Future<void> _saveFavouriteRoutes(List<FavouriteRoute> favs) async {
+  Future<void> _saveFavourites(List<FavouriteStop> favs) async {
     final prefs = await _prefsInstance;
     final jsonList = favs.map((f) => f.toMap()).toList();
-    await prefs.setString('favourite_routes', jsonEncode(jsonList));
+    await prefs.setString('favourites', jsonEncode(jsonList));
   }
 }

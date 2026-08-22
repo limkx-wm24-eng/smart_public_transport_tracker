@@ -32,7 +32,7 @@ class _SearchScreenState extends State<SearchScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Search Stops TEST 123',
+          'Search Stops',
         ),
       ),
       body: Column(
