@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/eta_utils.dart';
 import '../models/stop.dart';
 import '../models/vehicle_position.dart';
 import '../providers/favourites_provider.dart';
@@ -33,12 +34,10 @@ class StopDetailScreen extends StatelessWidget {
     final isFav =
     favourites.isFavourite(stop.stopId);
 
-    // For testing, use 5 km first.
-    // After confirming it works, you can change it to 1.0 km.
     final nearbyBuses =
     transit.vehiclesNearStop(
       stop,
-      radiusKm: 5.0,
+      radiusKm: 1.0,
     );
 
     return Scaffold(
@@ -260,7 +259,7 @@ class StopDetailScreen extends StatelessWidget {
             ),
 
             const Text(
-              'Currently showing buses within 5 km.',
+              'Currently showing buses within 1 km.',
               style: TextStyle(
                 color: Colors.grey,
               ),
@@ -328,7 +327,7 @@ class StopDetailScreen extends StatelessWidget {
 
                       const Text(
                         'No live bus is currently '
-                            'within 5 km of this stop.',
+                            'within 1 km of this stop.',
                         textAlign:
                         TextAlign.center,
                       ),
@@ -340,8 +339,7 @@ class StopDetailScreen extends StatelessWidget {
                       FilledButton.icon(
                         onPressed: () async {
                           await context
-                              .read<
-                              TransitProvider>()
+                              .read<TransitProvider>()
                               .refreshVehicles();
                         },
 
@@ -492,10 +490,22 @@ class _LiveBusTile
             ),
           ],
         ),
-
         trailing:
-        const Icon(
-          Icons.chevron_right,
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              estimateEtaLabel(distanceMeters),
+              style: Theme.of(context)
+                  .textTheme
+                  .titleSmall
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const Icon(
+              Icons.chevron_right,
+              size: 18,
+            ),
+          ],
         ),
       ),
     );

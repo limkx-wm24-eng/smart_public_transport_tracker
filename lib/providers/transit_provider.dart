@@ -6,10 +6,8 @@ import 'package:latlong2/latlong.dart';
 import '../core/constants.dart';
 import '../models/route_model.dart';
 import '../models/stop.dart';
-import '../models/vehicle_eta.dart';
 import '../models/vehicle_position.dart';
 import '../services/database_service.dart';
-import '../services/eta_service.dart';
 import '../services/gtfs_realtime_service.dart';
 import '../services/gtfs_static_service.dart';
 
@@ -31,7 +29,6 @@ class TransitProvider extends ChangeNotifier {
   final GtfsStaticService _staticService = GtfsStaticService();
   final GtfsRealtimeService _realtimeService = GtfsRealtimeService();
   final DatabaseService _db = DatabaseService.instance;
-  final EtaService _etaService = EtaService();
 
   List<Stop> _stops = [];
   List<TransitRoute> _routes = [];
@@ -200,20 +197,6 @@ class TransitProvider extends ChangeNotifier {
     }
 
     notifyListeners();
-  }
-
-  // ============================================================
-  // CALCULATE ETA
-  // ============================================================
-
-  List<VehicleEta> etasForStop(
-      Stop stop,
-      ) {
-    return _etaService.estimateForStop(
-      stop: stop,
-      vehicles: _vehicles,
-      routes: _routes,
-    );
   }
 
   // ============================================================

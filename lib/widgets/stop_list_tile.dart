@@ -7,6 +7,7 @@ class StopListTile extends StatelessWidget {
   final bool isFavourite;
   final VoidCallback onToggleFavourite;
   final VoidCallback? onTap;
+  final String? trailingLabel;
 
   const StopListTile({
     super.key,
@@ -14,6 +15,7 @@ class StopListTile extends StatelessWidget {
     required this.isFavourite,
     required this.onToggleFavourite,
     this.onTap,
+    this.trailingLabel,
   });
 
   @override
@@ -113,6 +115,19 @@ class StopListTile extends StatelessWidget {
                   onToggleFavourite();
                 },
               ),
+
+              if (trailingLabel != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Text(
+                    trailingLabel!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ),
 
               const Padding(
                 padding: EdgeInsets.only(

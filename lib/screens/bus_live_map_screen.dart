@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 
+import '../core/eta_utils.dart';
 import '../models/stop.dart';
 import '../models/vehicle_position.dart';
 import '../providers/transit_provider.dart';
@@ -694,6 +695,28 @@ class _BusLiveMapScreenState
                         const SizedBox(
                           height: 10,
                         ),
+
+                        // Estimated arrival time — prominent box, matches wireframe
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.schedule, size: 18),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Estimated Time: ${estimateEtaLabel(distanceMeters)}',
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 10),
 
                         // -----------------------------------------
                         // BUS ID

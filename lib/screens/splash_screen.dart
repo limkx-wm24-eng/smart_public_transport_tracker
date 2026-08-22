@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../providers/auth_provider.dart';
 import '../providers/favourites_provider.dart';
 import '../providers/transit_provider.dart';
 import '../widgets/root_nav.dart';
+import 'login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -21,17 +23,25 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _bootstrap() async {
     final transit = context.read<TransitProvider>();
-    final favourites = context.read<FavouritesProvider>();
+    final auth = context.read<AuthProvider>();
 
-    await Future.wait([
-      transit.initialise(),
-      favourites.load(),
-    ]);
+    // Transit data (stops/routes/live buses) doesn't require a login.
+    await transit.initialise();
 
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const RootNav()),
-    );
+
+    if (auth.isLoggedIn) {
+      await auth.loadProfile();
+      await context.read<FavouritesProvider>().load();
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const RootNav()),
+      );
+    } else {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
+    }
   }
 
   @override

@@ -14,6 +14,15 @@ import '../models/trip_model.dart';
 class GtfsStaticService {
   Archive? _cachedArchive;
 
+  // Parsed trips.txt / shapes.txt are comparatively expensive to re-parse
+  // (shapes.txt in particular can have tens of thousands of rows), and
+  // getRouteShapeForVehicle() calls fetchTrips() + fetchShapeForId() (which
+  // itself calls fetchShapePoints()) every time a user opens a bus's live
+  // map. Cache the parsed results the same way the raw archive is cached,
+  // so repeat lookups just re-filter the same in-memory list.
+  List<TransitTrip>? _cachedTrips;
+  List<ShapePoint>? _cachedShapePoints;
+
   Future<Archive> _getArchive() async {
     if (_cachedArchive != null) {
       return _cachedArchive!;
@@ -164,6 +173,10 @@ class GtfsStaticService {
 
   Future<List<TransitTrip>>
   fetchTrips() async {
+    if (_cachedTrips != null) {
+      return _cachedTrips!;
+    }
+
     final archive =
     await _getArchive();
 
@@ -187,6 +200,8 @@ class GtfsStaticService {
       }
     }
 
+    _cachedTrips = trips;
+
     return trips;
   }
 
@@ -196,6 +211,10 @@ class GtfsStaticService {
 
   Future<List<ShapePoint>>
   fetchShapePoints() async {
+    if (_cachedShapePoints != null) {
+      return _cachedShapePoints!;
+    }
+
     final archive =
     await _getArchive();
 
@@ -225,6 +244,8 @@ class GtfsStaticService {
 
       points.add(point);
     }
+
+    _cachedShapePoints = points;
 
     return points;
   }
@@ -282,5 +303,7 @@ class GtfsStaticService {
 
   void clearCache() {
     _cachedArchive = null;
+    _cachedTrips = null;
+    _cachedShapePoints = null;
   }
 }
