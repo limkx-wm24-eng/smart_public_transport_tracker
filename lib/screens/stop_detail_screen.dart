@@ -1,4 +1,8 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 
 import '../core/eta_utils.dart';
@@ -6,7 +10,6 @@ import '../models/stop.dart';
 import '../models/vehicle_position.dart';
 import '../providers/favourites_provider.dart';
 import '../providers/transit_provider.dart';
-import 'bus_live_map_screen.dart';
 
 /// Shows live buses near a selected stop.
 ///
@@ -15,13 +18,151 @@ import 'bus_live_map_screen.dart';
 /// -> StopDetailScreen
 /// -> Select a live bus
 /// -> BusLiveMapScreen
-class StopDetailScreen extends StatelessWidget {
+class StopDetailScreen extends StatefulWidget {
   final Stop stop;
 
   const StopDetailScreen({
     super.key,
     required this.stop,
   });
+
+  @override
+  State<StopDetailScreen> createState() => _StopDetailScreenState();
+}
+
+class _StopDetailScreenState extends State<StopDetailScreen> {
+  final MapController _mapController = MapController();
+  List<LatLng> _routePoints = [];
+  String? _routeVehicleId;
+  bool _hasFittedCamera = false;
+  String? _visibleBusesKey;
+  final ScrollController _scrollController = ScrollController();
+
+  Stop get stop => widget.stop;
+
+  Future<void> _loadRouteFor(List<VehiclePosition> buses) async {
+    VehiclePosition? bus;
+    for (final vehicle in buses) {
+      if ((vehicle.tripId ?? '').isNotEmpty) {
+        bus = vehicle;
+        break;
+      }
+    }
+    if (bus == null) {
+      if (_routeVehicleId == stop.stopId) {
+        return;
+      }
+      _routeVehicleId = stop.stopId;
+      final points = await context.read<TransitProvider>().getRouteShapeForStop(stop);
+      if (mounted && _routeVehicleId == stop.stopId) {
+        setState(() {
+          _routePoints = points;
+          _hasFittedCamera = false;
+        });
+      }
+      return;
+    }
+    if (bus.vehicleId == _routeVehicleId) {
+      return;
+    }
+
+    _routeVehicleId = bus.vehicleId;
+    final points = await context.read<TransitProvider>().getRouteShapeForVehicle(bus);
+    if (mounted && _routeVehicleId == bus.vehicleId) {
+      setState(() {
+        _routePoints = points;
+        _hasFittedCamera = false;
+      });
+    }
+  }
+
+  void _fitMap(List<VehiclePosition> buses) {
+    final busesKey = buses
+        .map((bus) => '${bus.vehicleId}:${bus.lat}:${bus.lng}')
+        .join('|');
+    if (busesKey != _visibleBusesKey) {
+      _visibleBusesKey = busesKey;
+      _hasFittedCamera = false;
+    }
+    if (_hasFittedCamera) {
+      return;
+    }
+    final points = <LatLng>[
+      LatLng(stop.lat, stop.lng),
+      ...buses.map((bus) => LatLng(bus.lat, bus.lng)),
+      ..._routePoints,
+    ];
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _hasFittedCamera) return;
+      final firstPoint = points.first;
+      final hasOnlyOneLocation = points.every(
+        (point) =>
+            point.latitude == firstPoint.latitude &&
+            point.longitude == firstPoint.longitude,
+      );
+      if (hasOnlyOneLocation) {
+        _mapController.move(firstPoint, 15);
+        _hasFittedCamera = true;
+        return;
+      }
+      _mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: LatLngBounds.fromPoints(points),
+          padding: const EdgeInsets.all(32),
+        ),
+      );
+      _hasFittedCamera = true;
+    });
+  }
+
+  void _focusBus(VehiclePosition bus) {
+    _mapController.move(LatLng(bus.lat, bus.lng), 16);
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  }
+
+  List<Marker> _routeDirectionMarkers() {
+    if (_routePoints.length < 2) {
+      return [];
+    }
+
+    // Keep the route direction clear without covering the map with arrows.
+    final step = math.max(1, (_routePoints.length / 8).ceil());
+    final markers = <Marker>[];
+    for (var index = step; index < _routePoints.length; index += step) {
+      final previous = _routePoints[index - 1];
+      final current = _routePoints[index];
+      final angle = -math.atan2(
+        current.latitude - previous.latitude,
+        current.longitude - previous.longitude,
+      );
+      markers.add(
+        Marker(
+          point: current,
+          width: 24,
+          height: 24,
+          child: Transform.rotate(
+            angle: angle,
+            child: const Icon(
+              Icons.arrow_forward,
+              color: Colors.blue,
+              size: 22,
+            ),
+          ),
+        ),
+      );
+    }
+    return markers;
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +180,16 @@ class StopDetailScreen extends StatelessWidget {
       stop,
       radiusKm: 1.0,
     );
+    VehiclePosition? routeBus;
+    for (final bus in nearbyBuses) {
+      if (bus.vehicleId == _routeVehicleId) {
+        routeBus = bus;
+        break;
+      }
+    }
+
+    _loadRouteFor(nearbyBuses);
+    _fitMap(nearbyBuses);
 
     return Scaffold(
       appBar: AppBar(
@@ -54,6 +205,7 @@ class StopDetailScreen extends StatelessWidget {
               Icons.refresh,
             ),
             onPressed: () async {
+
               await context
                   .read<TransitProvider>()
                   .refreshVehicles();
@@ -91,6 +243,7 @@ class StopDetailScreen extends StatelessWidget {
         },
 
         child: ListView(
+          controller: _scrollController,
           physics:
           const AlwaysScrollableScrollPhysics(),
 
@@ -98,6 +251,103 @@ class StopDetailScreen extends StatelessWidget {
           const EdgeInsets.all(16),
 
           children: [
+            // =================================================
+            // LIVE STOP MAP
+            // =================================================
+            SizedBox(
+              height: 250,
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: LatLng(stop.lat, stop.lng),
+                    initialZoom: 15,
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.example.smart_public_transport_tracker',
+                    ),
+                    if (_routePoints.isNotEmpty)
+                      PolylineLayer(
+                        polylines: [
+                          Polyline(
+                            points: _routePoints,
+                            strokeWidth: 5,
+                            color: Colors.blue,
+                          ),
+                        ],
+                      ),
+                    MarkerLayer(
+                      markers: [
+                        ..._routeDirectionMarkers(),
+                        Marker(
+                          point: LatLng(stop.lat, stop.lng),
+                          width: 48,
+                          height: 48,
+                          child: const Icon(Icons.location_on, color: Colors.red, size: 42),
+                        ),
+                        ...nearbyBuses.map((bus) => Marker(
+                          point: LatLng(bus.lat, bus.lng),
+                          width: 52,
+                          height: 52,
+                          child: GestureDetector(
+                            onTap: () => _showBusDetails(context, bus),
+                            child: Transform.rotate(
+                              angle: (bus.bearing ?? 0) * 3.141592653589793 / 180,
+                              child: Icon(
+                                Icons.directions_bus_filled,
+                                color: bus.vehicleId == routeBus?.vehicleId
+                                    ? Colors.blueAccent
+                                    : Colors.deepOrange,
+                                size: bus.vehicleId == routeBus?.vehicleId
+                                    ? 44
+                                    : 38,
+                              ),
+                            ),
+                          ),
+                        )),
+                      ],
+                    ),
+                  ],
+                    ),
+                  ),
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: FilledButton.tonalIcon(
+                      onPressed: () => context.read<FavouritesProvider>().toggleFavourite(stop),
+                      icon: Icon(isFav ? Icons.star : Icons.star_border),
+                      label: const Text('Favourite stop'),
+                    ),
+                  ),
+                  if (routeBus?.routeId?.isNotEmpty ?? false)
+                    Positioned(
+                      left: 12,
+                      top: 12,
+                      child: Chip(
+                        label: Text('Route ${routeBus!.routeId} direction'),
+                        avatar: const Icon(Icons.route, size: 18),
+                      ),
+                    )
+                  else if (_routePoints.isNotEmpty)
+                    const Positioned(
+                      left: 12,
+                      top: 12,
+                      child: Chip(
+                        label: Text('Scheduled route direction'),
+                        avatar: Icon(Icons.route, size: 18),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
             // =================================================
             // STOP INFORMATION
             // =================================================
@@ -381,15 +631,7 @@ class StopDetailScreen extends StatelessWidget {
                           '${bus.vehicleId}',
                     );
 
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            BusLiveMapScreen(
-                              stop: stop,
-                              vehicle: bus,
-                            ),
-                      ),
-                    );
+                    _focusBus(bus);
                   },
                 );
               },
@@ -398,6 +640,24 @@ class StopDetailScreen extends StatelessWidget {
             const SizedBox(
               height: 30,
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showBusDetails(BuildContext context, VehiclePosition bus) {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Vehicle: ${bus.vehicleId}', style: Theme.of(context).textTheme.titleMedium),
+            Text('Route: ${bus.routeId ?? 'Unknown'}'),
+            Text('Trip: ${bus.tripId ?? 'Unknown'}'),
           ],
         ),
       ),

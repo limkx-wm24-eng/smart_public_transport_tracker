@@ -6,87 +6,104 @@ import '../models/stop.dart';
 import '../services/database_service.dart';
 import '../services/supabase_favourites_service.dart';
 
-/// Manages the user's saved (favourite) stops using SQLite AND Supabase
-/// together, scoped by the logged-in user's id:
-///
-///  - SQLite (DatabaseService)             : local cache — instant reads,
-///                                            works offline
-///  - Supabase (SupabaseFavouritesService) : remote source of truth,
-///                                            scoped to auth.uid() via RLS
-///
-/// Requires the user to be logged in — load() and toggleFavourite() are
-/// no-ops if nobody is signed in.
+/// Manages a signed-in user's saved stops with an offline SQLite cache and
+/// Supabase synchronisation.
 class FavouritesProvider extends ChangeNotifier {
   final DatabaseService _localDb = DatabaseService.instance;
   final SupabaseFavouritesService _remote = SupabaseFavouritesService();
 
   List<FavouriteStop> _favourites = [];
-  List<FavouriteStop> get favourites => _favourites;
-
   bool _isOffline = false;
+
+  List<FavouriteStop> get favourites => List.unmodifiable(_favourites);
   bool get isOffline => _isOffline;
 
   String? get _userId => Supabase.instance.client.auth.currentUser?.id;
 
+  bool isFavourite(String stopId) {
+    return _favourites.any((favourite) => favourite.stopId == stopId);
+  }
+
   Future<void> load() async {
     final userId = _userId;
-    if (userId == null) return;
+    if (userId == null) {
+      _favourites = [];
+      _isOffline = false;
+      notifyListeners();
+      return;
+    }
 
     try {
-      final remoteFavs = await _remote.fetchFavourites(userId);
-      _favourites = remoteFavs;
+      final remoteFavourites = await _remote.fetchFavourites(userId);
+      _favourites = remoteFavourites;
       _isOffline = false;
-      await _localDb.cacheFavourites(remoteFavs);
-    } catch (e) {
-      debugPrint('Supabase unreachable, falling back to local cache: $e');
+      await _localDb.cacheFavourites(remoteFavourites);
+    } catch (error) {
+      debugPrint('Supabase unreachable, falling back to local cache: $error');
       _isOffline = true;
-      _favourites = await _localDb.getCachedFavourites();
+      try {
+        _favourites = await _localDb.getCachedFavourites();
+      } catch (cacheError) {
+        debugPrint('Could not load cached favourites: $cacheError');
+        _favourites = [];
+      }
     }
 
     notifyListeners();
   }
 
-  bool isFavourite(String stopId) {
-    return _favourites.any((f) => f.stopId == stopId);
-  }
+  /// Compatibility entry point for the earlier provider API.
+  Future<void> loadFavourites() => load();
 
   Future<void> toggleFavourite(Stop stop) async {
     final userId = _userId;
-    if (userId == null) return;
+    if (userId == null) {
+      return;
+    }
 
     if (isFavourite(stop.stopId)) {
-      _favourites.removeWhere((f) => f.stopId == stop.stopId);
+      _favourites.removeWhere((favourite) => favourite.stopId == stop.stopId);
       notifyListeners();
-      await _localDb.cacheRemoveFavourite(stop.stopId);
+
+      try {
+        await _localDb.cacheRemoveFavourite(stop.stopId);
+      } catch (error) {
+        debugPrint('Could not remove cached favourite: $error');
+      }
       try {
         await _remote.removeFavourite(userId, stop.stopId);
-      } catch (e) {
-        debugPrint('Could not sync removal to Supabase: $e');
+      } catch (error) {
+        debugPrint('Could not sync favourite removal to Supabase: $error');
       }
-    } else {
-      final fav = FavouriteStop(
-        stopId: stop.stopId,
-        name: stop.name,
-        lat: stop.lat,
-        lng: stop.lng,
-        savedAt: DateTime.now(),
-      );
-      _favourites.insert(0, fav);
-      notifyListeners();
-      await _localDb.cacheAddFavourite(fav);
-      try {
-        await _remote.addFavourite(userId, fav);
-      } catch (e) {
-        debugPrint('Could not sync addition to Supabase: $e');
-      }
+      return;
+    }
+
+    final favourite = FavouriteStop(
+      stopId: stop.stopId,
+      name: stop.name,
+      lat: stop.lat,
+      lng: stop.lng,
+      savedAt: DateTime.now(),
+    );
+    _favourites.insert(0, favourite);
+    notifyListeners();
+
+    try {
+      await _localDb.cacheAddFavourite(favourite);
+    } catch (error) {
+      debugPrint('Could not cache favourite: $error');
+    }
+    try {
+      await _remote.addFavourite(userId, favourite);
+    } catch (error) {
+      debugPrint('Could not sync favourite addition to Supabase: $error');
     }
   }
 
-  /// Clears favourites from memory (not from SQLite/Supabase) on sign out,
-  /// so the next person who logs in on this device doesn't briefly see the
-  /// previous user's list before load() runs.
+  /// Clears only in-memory state on sign out.
   void clearOnSignOut() {
     _favourites = [];
+    _isOffline = false;
     notifyListeners();
   }
 }

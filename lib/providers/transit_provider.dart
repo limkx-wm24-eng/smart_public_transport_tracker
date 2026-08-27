@@ -583,6 +583,30 @@ class TransitProvider extends ChangeNotifier {
     }
   }
 
+  /// Loads one GTFS route shape that serves [stop]. This provides a route
+  /// preview even when no live vehicle is currently within the nearby range.
+  Future<List<LatLng>> getRouteShapeForStop(Stop stop) async {
+    try {
+      final tripId = await _staticService.findTripIdForStop(stop.stopId);
+      if (tripId == null || tripId.isEmpty) {
+        return [];
+      }
+
+      final shapeId = await _staticService.findShapeIdForTrip(tripId);
+      if (shapeId == null || shapeId.isEmpty) {
+        return [];
+      }
+
+      final shapePoints = await _staticService.fetchShapeForId(shapeId);
+      return shapePoints
+          .map((point) => LatLng(point.lat, point.lng))
+          .toList();
+    } catch (error) {
+      debugPrint('Failed to load GTFS route for ${stop.stopId}: $error');
+      return [];
+    }
+  }
+
   // ============================================================
   // CLEAN UP TIMER
   // ============================================================

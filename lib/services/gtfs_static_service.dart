@@ -53,6 +53,7 @@ class GtfsStaticService {
   // so repeat lookups just re-filter the same in-memory list.
   List<TransitTrip>? _cachedTrips;
   List<ShapePoint>? _cachedShapePoints;
+  final Map<String, String?> _tripIdByStopId = {};
 
   Future<Archive> _getArchive() async {
     if (_cachedArchive != null) {
@@ -281,6 +282,28 @@ class GtfsStaticService {
     return null;
   }
 
+  /// Finds one scheduled trip serving [stopId]. This is used to show a
+  /// static route shape on a stop page when no live vehicle is nearby.
+  Future<String?> findTripIdForStop(String stopId) async {
+    if (_tripIdByStopId.containsKey(stopId)) {
+      return _tripIdByStopId[stopId];
+    }
+
+    final archive = await _getArchive();
+    final rows = await _parseCsvFile(archive, 'stop_times.txt');
+    for (final row in rows) {
+      if (row['stop_id']?.toString().trim() == stopId) {
+        final tripId = row['trip_id']?.toString().trim();
+        _tripIdByStopId[stopId] =
+            tripId == null || tripId.isEmpty ? null : tripId;
+        return _tripIdByStopId[stopId];
+      }
+    }
+
+    _tripIdByStopId[stopId] = null;
+    return null;
+  }
+
   // =========================================================
   // GET SHAPE POINTS FOR SHAPE ID
   // =========================================================
@@ -316,5 +339,6 @@ class GtfsStaticService {
     _cachedArchive = null;
     _cachedTrips = null;
     _cachedShapePoints = null;
+    _tripIdByStopId.clear();
   }
 }
