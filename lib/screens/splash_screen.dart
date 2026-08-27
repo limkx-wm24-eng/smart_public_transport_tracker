@@ -24,24 +24,38 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _bootstrap() async {
     final transit = context.read<TransitProvider>();
     final auth = context.read<AuthProvider>();
+    final favourites = context.read<FavouritesProvider>();
 
-    // Transit data (stops/routes/live buses) doesn't require a login.
-    await transit.initialise();
+    // Transit data (stops/routes/live buses) doesn't require a login, so
+    // kick it off immediately rather than waiting on anything else first.
+    final transitFuture = transit.initialise();
 
-    if (!mounted) return;
+    if (!auth.isLoggedIn) {
+      // Nothing else to load for a logged-out user — just wait for
+      // transit data and head to the login screen.
+      await transitFuture;
 
-    if (auth.isLoggedIn) {
-      await auth.loadProfile();
-      await context.read<FavouritesProvider>().load();
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const RootNav()),
-      );
-    } else {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const LoginScreen()),
       );
+      return;
     }
+
+    // Logged in: profile and favourites are independent of the transit
+    // data (and of each other), so load everything in parallel instead
+    // of one thing at a time — this is what was making the splash
+    // screen take noticeably longer for logged-in users.
+    await Future.wait([
+      transitFuture,
+      auth.loadProfile(),
+      favourites.load(),
+    ]);
+
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const RootNav()),
+    );
   }
 
   @override

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:csv/csv.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../core/constants.dart';
@@ -10,6 +11,36 @@ import '../models/route_model.dart';
 import '../models/shape_point.dart';
 import '../models/stop.dart';
 import '../models/trip_model.dart';
+
+/// Parses raw CSV text into a list of header-keyed rows.
+///
+/// Top-level (not a method) so it can be handed to [compute] and run on a
+/// background isolate — GTFS files like shapes.txt can have tens of
+/// thousands of rows, and parsing that on the main isolate was blocking
+/// the UI thread and making the app feel like it was hanging on load.
+List<Map<String, dynamic>> _parseCsvContent(String content) {
+  final rows = const CsvToListConverter(eol: '\n').convert(content);
+
+  if (rows.isEmpty) {
+    return [];
+  }
+
+  final headers = rows.first.map((h) => h.toString().trim()).toList();
+
+  final parsed = <Map<String, dynamic>>[];
+
+  for (final row in rows.skip(1)) {
+    if (row.length != headers.length) {
+      continue;
+    }
+
+    parsed.add({
+      for (var i = 0; i < headers.length; i++) headers[i]: row[i],
+    });
+  }
+
+  return parsed;
+}
 
 class GtfsStaticService {
   Archive? _cachedArchive;
@@ -28,9 +59,20 @@ class GtfsStaticService {
       return _cachedArchive!;
     }
 
-    final response = await http.get(
+    // The realtime feed already has a timeout (see GtfsRealtimeService) but
+    // this static download didn't — if api.data.gov.my is slow or the
+    // connection is flaky, this would previously hang indefinitely and the
+    // splash screen would just sit there with no way out.
+    final response = await http
+        .get(
       Uri.parse(
         AppConstants.gtfsStaticUrl,
+      ),
+    )
+        .timeout(
+      const Duration(seconds: 20),
+      onTimeout: () => throw Exception(
+        'Timed out downloading GTFS-Static feed',
       ),
     );
 
@@ -50,10 +92,10 @@ class GtfsStaticService {
     return _cachedArchive!;
   }
 
-  List<Map<String, dynamic>> _parseCsvFile(
+  Future<List<Map<String, dynamic>>> _parseCsvFile(
       Archive archive,
       String fileName,
-      ) {
+      ) async {
     final file = archive.files.firstWhere(
           (f) =>
           f.name
@@ -69,41 +111,10 @@ class GtfsStaticService {
       file.content as List<int>,
     );
 
-    final rows =
-    const CsvToListConverter(
-      eol: '\n',
-    ).convert(content);
-
-    if (rows.isEmpty) {
-      return [];
-    }
-
-    final headers = rows.first
-        .map(
-          (h) =>
-          h.toString().trim(),
-    )
-        .toList();
-
-    final parsed =
-    <Map<String, dynamic>>[];
-
-    for (final row
-    in rows.skip(1)) {
-      if (row.length !=
-          headers.length) {
-        continue;
-      }
-
-      parsed.add({
-        for (var i = 0;
-        i < headers.length;
-        i++)
-          headers[i]: row[i],
-      });
-    }
-
-    return parsed;
+    // Offload the actual CSV parse to a background isolate via compute() —
+    // this file can be large (shapes.txt especially) and parsing it in
+    // place was freezing the UI thread during load.
+    return compute(_parseCsvContent, content);
   }
 
   // =========================================================
@@ -116,7 +127,7 @@ class GtfsStaticService {
     await _getArchive();
 
     final rows =
-    _parseCsvFile(
+    await _parseCsvFile(
       archive,
       'stops.txt',
     );
@@ -145,7 +156,7 @@ class GtfsStaticService {
     await _getArchive();
 
     final rows =
-    _parseCsvFile(
+    await _parseCsvFile(
       archive,
       'routes.txt',
     );
@@ -181,7 +192,7 @@ class GtfsStaticService {
     await _getArchive();
 
     final rows =
-    _parseCsvFile(
+    await _parseCsvFile(
       archive,
       'trips.txt',
     );
@@ -219,7 +230,7 @@ class GtfsStaticService {
     await _getArchive();
 
     final rows =
-    _parseCsvFile(
+    await _parseCsvFile(
       archive,
       'shapes.txt',
     );

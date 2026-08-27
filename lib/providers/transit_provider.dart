@@ -68,7 +68,14 @@ class TransitProvider extends ChangeNotifier {
       'TransitProvider initialise started',
     );
 
-    await loadStopsAndRoutes();
+    // Stops/routes and live vehicle positions are independent of each
+    // other, so there's no reason to wait for one before starting the
+    // other — running them in parallel roughly halves the time spent on
+    // the splash screen compared to doing them one after another.
+    await Future.wait([
+      loadStopsAndRoutes(),
+      refreshVehicles(),
+    ]);
 
     debugPrint(
       'Stops loaded: ${_stops.length}',
@@ -77,8 +84,6 @@ class TransitProvider extends ChangeNotifier {
     debugPrint(
       'Routes loaded: ${_routes.length}',
     );
-
-    await refreshVehicles();
 
     startPolling();
 
@@ -99,6 +104,27 @@ class TransitProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // Show whatever's already cached locally right away, so the UI
+      // isn't blocked on a network round-trip just to display stops the
+      // device already has. If the cache turns out to be stale, we
+      // refresh it below — the user sees data instantly either way.
+      if (!forceRefresh) {
+        final cachedStops = await _db.getAllStops();
+
+        if (cachedStops.isNotEmpty) {
+          _stops = cachedStops;
+          _routes = await _db.getAllRoutes();
+
+          _stopsStatus = LoadStatus.ready;
+          notifyListeners();
+
+          debugPrint(
+            'Showing ${_stops.length} cached stops '
+                'while checking for a refresh.',
+          );
+        }
+      }
+
       final needsRefresh =
           forceRefresh ||
               await _db.shouldRefreshStops();
@@ -107,7 +133,7 @@ class TransitProvider extends ChangeNotifier {
         'GTFS static refresh required: $needsRefresh',
       );
 
-      if (needsRefresh) {
+      if (needsRefresh || _stops.isEmpty) {
         _staticService.clearCache();
 
         final freshStops =
@@ -126,33 +152,6 @@ class TransitProvider extends ChangeNotifier {
 
         _stops = freshStops;
         _routes = freshRoutes;
-      } else {
-        _stops =
-        await _db.getAllStops();
-
-        _routes =
-        await _db.getAllRoutes();
-
-        if (_stops.isEmpty) {
-          debugPrint(
-            'Stop database is empty. '
-                'Downloading GTFS static data...',
-          );
-
-          _stops =
-          await _staticService.fetchStops();
-
-          _routes =
-          await _staticService.fetchRoutes();
-
-          await _db.replaceStops(
-            _stops,
-          );
-
-          await _db.replaceRoutes(
-            _routes,
-          );
-        }
       }
 
       _stopsStatus = LoadStatus.ready;
