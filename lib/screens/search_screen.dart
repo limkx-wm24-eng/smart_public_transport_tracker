@@ -6,6 +6,8 @@ import '../models/stop.dart';
 import '../providers/favourites_provider.dart';
 import '../providers/transit_provider.dart';
 import '../services/location_service.dart';
+import '../services/gemini_ai_service.dart';
+import '../services/journey_planner_service.dart';
 import '../widgets/stop_list_tile.dart';
 import 'stop_detail_screen.dart';
 
@@ -26,6 +28,12 @@ class _SearchScreenState extends State<SearchScreen> {
   List<Stop> _results = [];
   Position? _myLocation;
   bool _locating = false;
+  bool _planningJourney = false;
+  JourneyPlan? _journey;
+  String? _journeyAdvice;
+  String? _journeyError;
+  final _planner = JourneyPlannerService();
+  final _ai = GeminiAiService();
 
   @override
   void initState() {
@@ -53,6 +61,23 @@ class _SearchScreenState extends State<SearchScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => StopDetailScreen(stop: stop)),
     );
+  }
+
+  Future<void> _findJourney() async {
+    final destination = _controller.text.trim();
+    if (destination.isEmpty) return;
+    setState(() { _planningJourney = true; _journeyError = null; _journey = null; _journeyAdvice = null; });
+    try {
+      final position = _myLocation ?? await _locationService.getCurrentPosition();
+      if (position == null) throw Exception('Location permission is required to plan a journey.');
+      final plan = await _planner.plan(destination: destination, latitude: position.latitude, longitude: position.longitude, transit: context.read<TransitProvider>());
+      if (plan == null) throw Exception('No nearby stops are available yet.');
+      String? advice;
+      if (plan.route != null) advice = await _ai.getJourneyAdvice(question: 'Give concise journey instructions to $destination.', transportContext: plan.toContext(position.latitude, position.longitude));
+      if (mounted) setState(() { _journey = plan; _journeyAdvice = advice; });
+    } catch (error) {
+      if (mounted) setState(() => _journeyError = error.toString().replaceFirst('Exception: ', ''));
+    } finally { if (mounted) setState(() => _planningJourney = false); }
   }
 
   /// The closest 8 stops to the user, nearest first.
@@ -103,6 +128,18 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
             ),
           ),
+          if (_controller.text.trim().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: FilledButton.icon(
+                onPressed: _planningJourney ? null : _findJourney,
+                icon: _planningJourney ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.auto_awesome),
+                label: const Text('Plan journey with AI'),
+              ),
+            ),
+          if (_journeyError != null)
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text(_journeyError!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
+          if (_journey != null) _buildJourneyCard(_journey!),
           if (transit.stopsStatus == LoadStatus.loading)
             const Padding(
               padding: EdgeInsets.all(24),
@@ -137,6 +174,21 @@ class _SearchScreenState extends State<SearchScreen> {
       ),
     );
   }
+
+  Widget _buildJourneyCard(JourneyPlan plan) => Card(
+    margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+    child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('Journey to ${plan.destination}', style: Theme.of(context).textTheme.titleMedium),
+      const SizedBox(height: 8),
+      Text('Nearest stop: ${plan.nearestStop.name}'),
+      Text('Walk: ${plan.walkMetres.round()} m • about ${plan.walkingMinutes} min'),
+      if (plan.route != null) ...[Text('Recommended: Bus ${plan.route!.displayLabel}'), Text('Bus arrival: ${plan.busEta ?? 'Live bus information is currently unavailable.'}'), if (plan.journeyMinutes != null) Text('Estimated total journey: about ${plan.journeyMinutes} min')],
+      if (plan.route == null) const Text('No matching direct route was found. Try a nearby destination stop name.'),
+      if (!plan.realtimeAvailable) const Padding(padding: EdgeInsets.only(top: 6), child: Text('Live bus information is currently unavailable.')),
+      if (_journeyAdvice != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_journeyAdvice!)),
+      TextButton.icon(onPressed: () => _openStop(plan.nearestStop), icon: const Icon(Icons.map_outlined), label: const Text('Show Route on Map')),
+    ])),
+  );
 
   Widget _buildNearbyStops(
       BuildContext context,

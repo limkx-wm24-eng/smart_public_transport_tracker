@@ -54,6 +54,7 @@ class GtfsStaticService {
   List<TransitTrip>? _cachedTrips;
   List<ShapePoint>? _cachedShapePoints;
   final Map<String, String?> _tripIdByStopId = {};
+  Map<String, Set<String>>? _routeIdsByStopId;
 
   Future<Archive> _getArchive() async {
     if (_cachedArchive != null) {
@@ -304,6 +305,28 @@ class GtfsStaticService {
     return null;
   }
 
+  /// Returns the GTFS route IDs that serve a stop. The index is built once
+  /// from the local feed and is deliberately kept in the app, never sent to AI.
+  Future<Set<String>> findRouteIdsForStop(String stopId) async {
+    if (_routeIdsByStopId == null) {
+      final trips = await fetchTrips();
+      final routeByTrip = {for (final trip in trips) trip.tripId: trip.routeId};
+      final archive = await _getArchive();
+      final rows = await _parseCsvFile(archive, 'stop_times.txt');
+      final index = <String, Set<String>>{};
+      for (final row in rows) {
+        final id = row['stop_id']?.toString().trim() ?? '';
+        final tripId = row['trip_id']?.toString().trim() ?? '';
+        final routeId = routeByTrip[tripId];
+        if (id.isNotEmpty && routeId != null && routeId.isNotEmpty) {
+          index.putIfAbsent(id, () => <String>{}).add(routeId);
+        }
+      }
+      _routeIdsByStopId = index;
+    }
+    return _routeIdsByStopId![stopId] ?? <String>{};
+  }
+
   // =========================================================
   // GET SHAPE POINTS FOR SHAPE ID
   // =========================================================
@@ -340,5 +363,6 @@ class GtfsStaticService {
     _cachedTrips = null;
     _cachedShapePoints = null;
     _tripIdByStopId.clear();
+    _routeIdsByStopId = null;
   }
 }

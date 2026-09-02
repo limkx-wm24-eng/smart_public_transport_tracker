@@ -4,6 +4,7 @@ import '../screens/favourites_screen.dart';
 import '../screens/home_map_screen.dart';
 import '../screens/search_screen.dart';
 import '../screens/settings_screen.dart';
+import '../screens/ai_support_page.dart';
 
 /// Shell widget holding the bottom navigation bar. Matches the navigation
 /// structure chart from the Week 6 prototype slides:
@@ -22,6 +23,7 @@ class _RootNavState extends State<RootNav> {
     HomeMapScreen(),
     SearchScreen(),
     FavouritesScreen(),
+    AiSupportPage(),
     SettingsScreen(),
   ];
 
@@ -47,6 +49,11 @@ class _RootNavState extends State<RootNav> {
             icon: Icon(Icons.star_outline),
             selectedIcon: Icon(Icons.star),
             label: 'Favourites',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.support_agent_outlined),
+            selectedIcon: Icon(Icons.support_agent),
+            label: 'AI Support',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),

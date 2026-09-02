@@ -583,6 +583,10 @@ class TransitProvider extends ChangeNotifier {
     }
   }
 
+  /// GTFS-static route IDs serving a stop, used by the journey assistant.
+  Future<Set<String>> routeIdsForStop(Stop stop) =>
+      _staticService.findRouteIdsForStop(stop.stopId);
+
   /// Loads one GTFS route shape that serves [stop]. This provides a route
   /// preview even when no live vehicle is currently within the nearby range.
   Future<List<LatLng>> getRouteShapeForStop(Stop stop) async {
