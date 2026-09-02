@@ -40,6 +40,9 @@ dependencies:
   # Remote database (cloud sync)
   supabase_flutter: ^2.5.6
 
+  # Hashing the security PIN before it ever leaves the device
+  crypto: ^3.0.3
+
   # Parsing the GTFS-Static ZIP feed (routes.txt, stops.txt, etc.)
   archive: ^3.6.1
   csv: ^6.0.0

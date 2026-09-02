@@ -42,4 +42,15 @@ class AppConstants {
   // Supabase project credentials (remote database — favourites sync).
   static const String supabaseUrl = 'https://gxdumicthspqfvvmzjtz.supabase.co';
   static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd4ZHVtaWN0aHNwcWZ2dm16anR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0MDQ3MDksImV4cCI6MjEwMjk4MDcwOX0.bGMN681VijMZlwyWLF5s8AU58y3A2Nq_wFaVu-O_YyU';
+
+  // Where Supabase confirmation / password-reset email links send the user
+  // back to. This custom scheme is registered in AndroidManifest.xml (Android)
+  // and Info.plist (iOS) so it opens THIS app instead of a browser.
+  //
+  // IMPORTANT: this exact URL (or "io.supabase.smarttransport://login-callback/**")
+  // must also be added under Supabase dashboard -> Authentication ->
+  // URL Configuration -> Redirect URLs, or Supabase will reject it and
+  // silently fall back to the default Site URL (localhost).
+  static const String authRedirectUrl =
+      'io.supabase.smarttransport://login-callback/';
 }
