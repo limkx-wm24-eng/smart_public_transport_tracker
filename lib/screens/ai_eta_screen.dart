@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
@@ -9,6 +11,7 @@ import '../services/groq_ai_service.dart';
 import '../services/google_transit_service.dart';
 import '../services/location_service.dart';
 import '../services/route_planner_service.dart';
+import 'google_route_detail_screen.dart';
 import 'route_detail_screen.dart';
 
 class AiEtaScreen extends StatefulWidget {
@@ -40,6 +43,7 @@ class _AiEtaScreenState extends State<AiEtaScreen> {
   bool _loadingLocation = false;
   bool _searching = false;
   int _placeSearchSequence = 0;
+  Timer? _placeSearchTimer;
   RouteSortPreference _sortPreference = RouteSortPreference.shortestTravelTime;
 
   @override
@@ -55,6 +59,7 @@ class _AiEtaScreenState extends State<AiEtaScreen> {
   void dispose() {
     _startController.dispose();
     _destinationController.dispose();
+    _placeSearchTimer?.cancel();
     super.dispose();
   }
 
@@ -81,7 +86,11 @@ class _AiEtaScreenState extends State<AiEtaScreen> {
       _destinationResults = [];
     });
     final sequence = ++_placeSearchSequence;
-    _findDestinationPlaces(query, sequence);
+    _placeSearchTimer?.cancel();
+    _placeSearchTimer = Timer(
+      const Duration(milliseconds: 450),
+      () => _findDestinationPlaces(query, sequence),
+    );
   }
 
   Future<void> _findDestinationPlaces(String query, int sequence) async {
@@ -198,13 +207,21 @@ class _AiEtaScreenState extends State<AiEtaScreen> {
     });
 
     try {
+      await transit.loadRailRouteLabels();
       final googleRoutes = await _googleTransit.findTransitRoutes(
         origin: start.coordinate,
         destination: destination.coordinate,
         preference: _sortPreference,
       );
       if (googleRoutes.isNotEmpty) {
-        if (mounted) setState(() => _googleRoutes = googleRoutes);
+        final labelledRoutes = googleRoutes
+            .map(
+              (route) => route.withPassengerLabels(
+                transit.mappedPassengerRouteLabel,
+              ),
+            )
+            .toList();
+        if (mounted) setState(() => _googleRoutes = labelledRoutes);
         return;
       }
 
@@ -297,6 +314,12 @@ class _AiEtaScreenState extends State<AiEtaScreen> {
           aiAdvice: plan == _plans.first ? _aiAdvice : null,
         ),
       ),
+    );
+  }
+
+  void _openGoogleDetails(GoogleTransitRoute route) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => GoogleRouteDetailScreen(route: route)),
     );
   }
 
@@ -452,7 +475,10 @@ class _AiEtaScreenState extends State<AiEtaScreen> {
               ),
               const SizedBox(height: 8),
               ..._googleRoutes.map(
-                (route) => _GoogleRouteSuggestionCard(route: route),
+                (route) => _GoogleRouteSuggestionCard(
+                  route: route,
+                  onTap: () => _openGoogleDetails(route),
+                ),
               ),
             ],
           ],
@@ -666,21 +692,25 @@ class _RouteSuggestionCard extends StatelessWidget {
 }
 
 class _GoogleRouteSuggestionCard extends StatelessWidget {
-  const _GoogleRouteSuggestionCard({required this.route});
+  const _GoogleRouteSuggestionCard({required this.route, required this.onTap});
 
   final GoogleTransitRoute route;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final summary = route.steps
         .where((step) => step.isTransit)
-        .map((step) => step.line ?? step.headsign ?? 'Public transport')
+        .map((step) => step.displayLine)
         .toList();
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -737,8 +767,14 @@ class _GoogleRouteSuggestionCard extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 4),
                 child: Text('${route.transfers} transfer${route.transfers == 1 ? '' : 's'}'),
               ),
+            const SizedBox(height: 6),
+            const Align(
+              alignment: Alignment.centerRight,
+              child: Text('View directions'),
+            ),
           ],
         ),
+      ),
       ),
     );
   }

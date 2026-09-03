@@ -319,7 +319,7 @@ class _BusLiveMapScreenState
                   latestBus
                       .routeId!
                       .isNotEmpty
-                  ? 'Route ${latestBus.routeId}'
+                  ? 'Bus ${transit.displayRouteLabel(latestBus.routeId)}'
                   : 'Live Bus',
             );
           },
@@ -676,7 +676,7 @@ class _BusLiveMapScreenState
                                     latestBus
                                         .routeId!
                                         .isNotEmpty
-                                    ? 'Route ${latestBus.routeId}'
+                                    ? 'Bus ${transit.displayRouteLabel(latestBus.routeId)}'
                                     : 'Live Bus',
 
                                 style:

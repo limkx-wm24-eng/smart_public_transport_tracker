@@ -39,7 +39,7 @@ class AppConstants {
 
   // Local SQLite database (offline cache: stops, routes, favourites mirror)
   static const String dbName = 'transit_tracker.db';
-  static const int dbVersion = 1;
+  static const int dbVersion = 2;
 
   // Supabase project credentials (remote database — favourites sync).
   static const String supabaseUrl = 'https://gxdumicthspqfvvmzjtz.supabase.co';

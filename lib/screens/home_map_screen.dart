@@ -349,7 +349,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
 
                           child: Tooltip(
                             message:
-                            'Bus ${vehicle.vehicleId}',
+                            'Bus ${transit.displayRouteLabel(vehicle.routeId)}',
 
                             child: const Icon(
                               Icons

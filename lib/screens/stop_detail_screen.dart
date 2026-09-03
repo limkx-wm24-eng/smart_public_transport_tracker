@@ -315,7 +315,7 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
                       left: 12,
                       top: 12,
                       child: Chip(
-                        label: Text('Route ${routeBus!.routeId} direction'),
+                        label: Text('Bus ${context.read<TransitProvider>().displayRouteLabel(routeBus!.routeId)} direction'),
                         avatar: const Icon(Icons.route, size: 18),
                       ),
                     )
@@ -599,7 +599,7 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
           children: [
             Text('Vehicle: ${bus.vehicleId}',
                 style: Theme.of(context).textTheme.titleMedium),
-            Text('Route: ${bus.routeId ?? 'Unknown'}'),
+            Text('Bus: ${context.read<TransitProvider>().displayRouteLabel(bus.routeId)}'),
             Text('Trip: ${bus.tripId ?? 'Unknown'}'),
           ],
         ),
@@ -642,7 +642,7 @@ class _LiveBusTile extends StatelessWidget {
         ),
         title: Text(
           bus.routeId != null && bus.routeId!.isNotEmpty
-              ? 'Route ${bus.routeId}'
+              ? 'Bus ${context.read<TransitProvider>().displayRouteLabel(bus.routeId)}'
               : 'Live Bus',
         ),
         subtitle: Column(

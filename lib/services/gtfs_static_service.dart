@@ -42,6 +42,10 @@ List<Map<String, dynamic>> _parseCsvContent(String content) {
 }
 
 class GtfsStaticService {
+  GtfsStaticService({String? staticUrl})
+      : _staticUrl = staticUrl ?? AppConstants.gtfsStaticUrl;
+
+  final String _staticUrl;
   Archive? _cachedArchive;
 
   // Parsed trips.txt / shapes.txt are comparatively expensive to re-parse
@@ -69,9 +73,7 @@ class GtfsStaticService {
     // splash screen would just sit there with no way out.
     final response = await http
         .get(
-          Uri.parse(
-            AppConstants.gtfsStaticUrl,
-          ),
+          Uri.parse(_staticUrl),
         )
         .timeout(
           const Duration(seconds: 20),

@@ -59,7 +59,8 @@ class DatabaseService {
           CREATE TABLE routes (
             route_id TEXT PRIMARY KEY,
             short_name TEXT NOT NULL,
-            long_name TEXT NOT NULL
+            long_name TEXT NOT NULL,
+            route_type INTEGER NOT NULL DEFAULT 3
           )
         ''');
         await db.execute('''
@@ -77,6 +78,13 @@ class DatabaseService {
             value TEXT NOT NULL
           )
         ''');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute(
+            'ALTER TABLE routes ADD COLUMN route_type INTEGER NOT NULL DEFAULT 3',
+          );
+        }
       },
     );
   }

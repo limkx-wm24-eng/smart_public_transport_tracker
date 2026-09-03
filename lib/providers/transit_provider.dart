@@ -27,11 +27,16 @@ enum LoadStatus {
 
 class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
   final GtfsStaticService _staticService = GtfsStaticService();
+  final GtfsStaticService _railStaticService = GtfsStaticService(
+    staticUrl: 'https://api.data.gov.my/gtfs-static/prasarana?category=rapid-rail-kl',
+  );
   final GtfsRealtimeService _realtimeService = GtfsRealtimeService();
   final DatabaseService _db = DatabaseService.instance;
 
   List<Stop> _stops = [];
   List<TransitRoute> _routes = [];
+  List<TransitRoute> _railRoutes = [];
+  Future<void>? _railRouteLoad;
   List<VehiclePosition> _vehicles = [];
 
   LoadStatus _stopsStatus = LoadStatus.initial;
@@ -58,6 +63,26 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   List<VehiclePosition> get vehicles => _vehicles;
 
+  /// Converts the GTFS-Realtime internal route_id into the passenger-facing
+  /// route_short_name from GTFS Static routes.txt. Realtime matching still
+  /// uses the original ID; this is only for display.
+  String displayRouteLabel(String? routeId) {
+    return mappedPassengerRouteLabel(routeId) ?? routeId ?? 'Unknown';
+  }
+
+  /// Resolves either a GTFS route_id or a public short code. The rail feed is
+  /// loaded separately because Google transit suggestions can combine buses
+  /// with LRT/MRT lines even when this app's live feed is bus-only.
+  String? mappedPassengerRouteLabel(String? routeCode) {
+    if (routeCode == null || routeCode.isEmpty) return null;
+    for (final route in [..._routes, ..._railRoutes]) {
+      if (route.routeId == routeCode || route.shortName == routeCode) {
+        return route.passengerDisplayLabel;
+      }
+    }
+    return null;
+  }
+
   LoadStatus get stopsStatus => _stopsStatus;
 
   LoadStatus get vehiclesStatus => _vehiclesStatus;
@@ -79,6 +104,7 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
     // the splash screen compared to doing them one after another.
     await Future.wait([
       loadStopsAndRoutes(),
+      loadRailRouteLabels(),
       refreshVehicles(),
     ]);
 
@@ -193,6 +219,20 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     notifyListeners();
+  }
+
+  Future<void> loadRailRouteLabels() async {
+    if (_railRoutes.isNotEmpty) return;
+    _railRouteLoad ??= _loadRailRouteLabels();
+    await _railRouteLoad;
+  }
+
+  Future<void> _loadRailRouteLabels() async {
+    try {
+      _railRoutes = await _railStaticService.fetchRoutes();
+    } catch (error) {
+      debugPrint('Could not load Rapid Rail route labels: $error');
+    }
   }
 
   // ============================================================
