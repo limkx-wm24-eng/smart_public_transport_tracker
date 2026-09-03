@@ -1,9 +1,9 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Single client for the Gemini Edge Function. No Gemini credential is ever
+/// Single client for the Groq Edge Function. No Groq credential is ever
 /// included in the mobile application.
-class GeminiAiService {
-  GeminiAiService({SupabaseClient? client})
+class GroqAiService {
+  GroqAiService({SupabaseClient? client})
       : _client = client ?? Supabase.instance.client;
 
   final SupabaseClient _client;
@@ -45,6 +45,8 @@ class GeminiAiService {
         appContext: {
           'recentMessages': recentMessages.take(6).toList(),
           'features': {
+            'chatbot':
+                'AI Support can answer general questions, app-help questions, and transport questions.',
             'liveMap':
                 'Open Live Map to view currently reported bus positions and refresh the feed.',
             'busLines':
@@ -73,7 +75,7 @@ class GeminiAiService {
     }
     try {
       final response = await _client.functions.invoke(
-        'gemini-assistant',
+        'ai-assistant',
         body: {
           'mode': mode,
           'question': question,

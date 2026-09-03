@@ -5,7 +5,8 @@ import 'package:provider/provider.dart';
 import '../models/public_transport_plan.dart';
 import '../models/stop.dart';
 import '../providers/transit_provider.dart';
-import '../services/gemini_ai_service.dart';
+import '../services/groq_ai_service.dart';
+import '../services/google_transit_service.dart';
 import '../services/location_service.dart';
 import '../services/route_planner_service.dart';
 import 'route_detail_screen.dart';
@@ -24,18 +25,21 @@ class _AiEtaScreenState extends State<AiEtaScreen> {
   final TextEditingController _destinationController = TextEditingController();
   final LocationService _location = LocationService();
   final RoutePlannerService _planner = RoutePlannerService();
-  final GeminiAiService _ai = GeminiAiService();
+  final GroqAiService _ai = GroqAiService();
+  final GoogleTransitService _googleTransit = GoogleTransitService();
 
   LocationCandidate? _start;
   LocationCandidate? _destination;
   List<Stop> _startResults = [];
-  List<Stop> _destinationResults = [];
+  List<PlaceSearchResult> _destinationResults = [];
   List<PublicTransportPlan> _plans = [];
+  List<GoogleTransitRoute> _googleRoutes = [];
   String? _aiAdvice;
   String? _error;
   String? _gpsNotice;
   bool _loadingLocation = false;
   bool _searching = false;
+  int _placeSearchSequence = 0;
   RouteSortPreference _sortPreference = RouteSortPreference.shortestTravelTime;
 
   @override
@@ -72,11 +76,25 @@ class _AiEtaScreenState extends State<AiEtaScreen> {
   }
 
   void _searchDestination(String query) {
-    final transit = context.read<TransitProvider>();
     setState(() {
       _destination = null;
-      _destinationResults = transit.searchStopsLocally(query).take(8).toList();
+      _destinationResults = [];
     });
+    final sequence = ++_placeSearchSequence;
+    _findDestinationPlaces(query, sequence);
+  }
+
+  Future<void> _findDestinationPlaces(String query, int sequence) async {
+    if (query.trim().length < 2) return;
+    try {
+      final places = await _googleTransit.searchPlaces(query);
+      if (mounted && sequence == _placeSearchSequence) {
+        setState(() => _destinationResults = places);
+      }
+    } catch (_) {
+      // Keep the search screen usable when the remote place service is
+      // temporarily unavailable. A full error is shown only after Search.
+    }
   }
 
   void _selectStart(Stop stop) {
@@ -88,10 +106,13 @@ class _AiEtaScreenState extends State<AiEtaScreen> {
     });
   }
 
-  void _selectDestination(Stop stop) {
+  void _selectDestination(PlaceSearchResult place) {
     setState(() {
-      _destination = _candidateFromStop(stop);
-      _destinationController.text = stop.name;
+      _destination = LocationCandidate(
+        name: place.name,
+        coordinate: place.coordinate,
+      );
+      _destinationController.text = place.name;
       _destinationResults = [];
     });
   }
@@ -107,6 +128,7 @@ class _AiEtaScreenState extends State<AiEtaScreen> {
       _startResults = [];
       _destinationResults = [];
       _plans = [];
+      _googleRoutes = [];
       _aiAdvice = null;
       _error = null;
       _gpsNotice = null;
@@ -154,8 +176,7 @@ class _AiEtaScreenState extends State<AiEtaScreen> {
     final transit = context.read<TransitProvider>();
     final start =
         _start ?? _candidateFromTypedStop(_startController.text, transit);
-    final destination = _destination ??
-        _candidateFromTypedStop(_destinationController.text, transit);
+    final destination = _destination;
     if (start == null) {
       setState(
           () => _error = 'Choose a start location or use Current Location.');
@@ -163,7 +184,7 @@ class _AiEtaScreenState extends State<AiEtaScreen> {
     }
     if (destination == null) {
       setState(
-          () => _error = 'Choose a destination from the stop search results.');
+          () => _error = 'Choose a destination from the location search results.');
       return;
     }
 
@@ -172,10 +193,21 @@ class _AiEtaScreenState extends State<AiEtaScreen> {
       _error = null;
       _gpsNotice = null;
       _plans = [];
+      _googleRoutes = [];
       _aiAdvice = null;
     });
 
     try {
+      final googleRoutes = await _googleTransit.findTransitRoutes(
+        origin: start.coordinate,
+        destination: destination.coordinate,
+        preference: _sortPreference,
+      );
+      if (googleRoutes.isNotEmpty) {
+        if (mounted) setState(() => _googleRoutes = googleRoutes);
+        return;
+      }
+
       final plans = await _planner.findRoutes(
         start: start,
         destination: destination,
@@ -323,13 +355,14 @@ class _AiEtaScreenState extends State<AiEtaScreen> {
               icon: Icons.location_on_outlined,
               onChanged: _searchDestination,
             ),
-            _StopResults(
+            _PlaceResults(
               results: _destinationResults,
               onSelected: _selectDestination,
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<RouteSortPreference>(
               initialValue: _sortPreference,
+              isExpanded: true,
               decoration: const InputDecoration(
                 labelText: 'Sort routes by',
                 prefixIcon: Icon(Icons.tune),
@@ -337,11 +370,17 @@ class _AiEtaScreenState extends State<AiEtaScreen> {
               items: const [
                 DropdownMenuItem(
                   value: RouteSortPreference.shortestTravelTime,
-                  child: Text('Shortest travel time'),
+                  child: Text(
+                    'Shortest travel time',
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 DropdownMenuItem(
                   value: RouteSortPreference.fewestTransfers,
-                  child: Text('Least cost / fewest line changes'),
+                  child: Text(
+                    'Least cost / fewest line changes',
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
               onChanged: (value) {
@@ -349,22 +388,19 @@ class _AiEtaScreenState extends State<AiEtaScreen> {
               },
             ),
             const SizedBox(height: 12),
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _swapLocations,
-                    icon: const Icon(Icons.swap_vert),
-                    label: const Text('Swap'),
-                  ),
+                OutlinedButton.icon(
+                  onPressed: _swapLocations,
+                  icon: const Icon(Icons.swap_vert),
+                  label: const Text('Swap'),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.schedule),
-                    label: const Text('Depart Now'),
-                  ),
+                OutlinedButton.icon(
+                  onPressed: () {},
+                  icon: const Icon(Icons.schedule),
+                  label: const Text('Depart Now'),
                 ),
               ],
             ),
@@ -403,6 +439,20 @@ class _AiEtaScreenState extends State<AiEtaScreen> {
                   plan: plan,
                   onTap: () => _openDetails(plan),
                 ),
+              ),
+            ],
+            if (_googleRoutes.isNotEmpty) ...[
+              const SizedBox(height: 18),
+              Text(
+                'Suggested public transport routes',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              ..._googleRoutes.map(
+                (route) => _GoogleRouteSuggestionCard(route: route),
               ),
             ],
           ],
@@ -465,6 +515,34 @@ class _StopResults extends StatelessWidget {
                 title: Text(stop.name),
                 subtitle: Text('Stop ID: ${stop.stopId}'),
                 onTap: () => onSelected(stop),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+}
+
+class _PlaceResults extends StatelessWidget {
+  const _PlaceResults({required this.results, required this.onSelected});
+
+  final List<PlaceSearchResult> results;
+  final ValueChanged<PlaceSearchResult> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    if (results.isEmpty) return const SizedBox.shrink();
+    return Card(
+      margin: const EdgeInsets.only(top: 8),
+      child: Column(
+        children: results
+            .map(
+              (place) => ListTile(
+                dense: true,
+                leading: const Icon(Icons.location_on_outlined),
+                title: Text(place.name),
+                subtitle: place.address.isEmpty ? null : Text(place.address),
+                onTap: () => onSelected(place),
               ),
             )
             .toList(),
@@ -584,5 +662,84 @@ class _RouteSuggestionCard extends StatelessWidget {
     final minute = value.minute.toString().padLeft(2, '0');
     final period = value.hour >= 12 ? 'PM' : 'AM';
     return '$hour:$minute $period';
+  }
+}
+
+class _GoogleRouteSuggestionCard extends StatelessWidget {
+  const _GoogleRouteSuggestionCard({required this.route});
+
+  final GoogleTransitRoute route;
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = route.steps
+        .where((step) => step.isTransit)
+        .map((step) => step.line ?? step.headsign ?? 'Public transport')
+        .toList();
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    route.duration,
+                    style: Theme.of(context)
+                        .textTheme
+                        .headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                if (route.fare != null)
+                  Text(
+                    route.fare!,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              summary.isEmpty ? 'Walking route details unavailable' : summary.join('  →  '),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            ...route.steps.take(5).map(
+              (step) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      step.isTransit
+                          ? Icons.directions_transit
+                          : Icons.directions_walk,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        [
+                          step.instruction,
+                          if (step.duration.isNotEmpty) step.duration,
+                        ].join(' · '),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (route.transfers > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text('${route.transfers} transfer${route.transfers == 1 ? '' : 's'}'),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }

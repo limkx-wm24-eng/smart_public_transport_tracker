@@ -6,7 +6,7 @@ import '../models/stop.dart';
 import '../providers/favourites_provider.dart';
 import '../providers/transit_provider.dart';
 import '../services/location_service.dart';
-import '../services/gemini_ai_service.dart';
+import '../services/groq_ai_service.dart';
 import '../services/journey_planner_service.dart';
 import '../widgets/stop_list_tile.dart';
 import 'stop_detail_screen.dart';
@@ -33,7 +33,7 @@ class _SearchScreenState extends State<SearchScreen> {
   String? _journeyAdvice;
   String? _journeyError;
   final _planner = JourneyPlannerService();
-  final _ai = GeminiAiService();
+  final _ai = GroqAiService();
 
   @override
   void initState() {

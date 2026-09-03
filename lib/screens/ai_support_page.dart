@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import '../core/eta_utils.dart';
 import '../models/stop.dart';
 import '../providers/transit_provider.dart';
-import '../services/gemini_ai_service.dart';
+import '../services/groq_ai_service.dart';
 import '../services/location_service.dart';
 
 class AiSupportPage extends StatefulWidget {
@@ -15,9 +15,18 @@ class AiSupportPage extends StatefulWidget {
 }
 
 class _AiSupportPageState extends State<AiSupportPage> {
+  static const _frequentlyAskedQuestions = [
+    'What are the nearest bus stops to me?',
+    'How do I view live bus locations?',
+    'How do I save a stop to Favourites?',
+    'How can I plan a journey with AI?',
+    'When will the next bus arrive?',
+    'How do I search for a bus route or stop?',
+  ];
+
   final _input = TextEditingController();
   final _scroll = ScrollController();
-  final _ai = GeminiAiService();
+  final _ai = GroqAiService();
   final _location = LocationService();
   final List<_Message> _messages = [];
   bool _sending = false;
@@ -67,6 +76,12 @@ class _AiSupportPageState extends State<AiSupportPage> {
     }
   }
 
+  void _askFrequentlyAskedQuestion(String question) {
+    if (_sending) return;
+    _input.text = question;
+    _send();
+  }
+
   List<Stop> _nearestStops(List<Stop> stops, Position? position) {
     if (position == null) return [];
     final sorted = [...stops];
@@ -94,12 +109,52 @@ class _AiSupportPageState extends State<AiSupportPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('AI Support')),
+    appBar: AppBar(title: const Text('AI Assistant')),
     body: Column(children: [
-      Expanded(child: _messages.isEmpty ? const Center(child: Text('Ask about buses or how to use the app.')) : ListView.builder(controller: _scroll, padding: const EdgeInsets.all(12), itemCount: _messages.length, itemBuilder: (_, i) => _bubble(_messages[i]))),
+      Expanded(
+        child: _messages.isEmpty
+            ? _buildWelcome()
+            : ListView.builder(
+                controller: _scroll,
+                padding: const EdgeInsets.all(12),
+                itemCount: _messages.length,
+                itemBuilder: (_, i) => _bubble(_messages[i]),
+              ),
+      ),
       if (_sending) const LinearProgressIndicator(),
-      SafeArea(child: Padding(padding: const EdgeInsets.all(12), child: Row(children: [Expanded(child: TextField(controller: _input, onSubmitted: (_) => _send(), decoration: const InputDecoration(hintText: 'Ask AI Support...'))), IconButton(onPressed: _sending ? null : _send, icon: const Icon(Icons.send))]))),
+      SafeArea(child: Padding(padding: const EdgeInsets.all(12), child: Row(children: [Expanded(child: TextField(controller: _input, onSubmitted: (_) => _send(), decoration: const InputDecoration(hintText: 'Ask anything or about transport...'))), IconButton(onPressed: _sending ? null : _send, icon: const Icon(Icons.send))]))),
     ]),
+  );
+
+  Widget _buildWelcome() => ListView(
+    padding: const EdgeInsets.all(24),
+    children: [
+      const Icon(Icons.smart_toy_outlined, size: 48),
+      const SizedBox(height: 16),
+      Text(
+        'How can I help?',
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.headlineSmall,
+      ),
+      const SizedBox(height: 8),
+      const Text(
+        'Ask me anything, or choose a frequently asked question about transport and the app.',
+        textAlign: TextAlign.center,
+      ),
+      const SizedBox(height: 28),
+      Text('Frequently asked questions', style: Theme.of(context).textTheme.titleMedium),
+      const SizedBox(height: 8),
+      ..._frequentlyAskedQuestions.map(
+        (question) => Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            title: Text(question),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () => _askFrequentlyAskedQuestion(question),
+          ),
+        ),
+      ),
+    ],
   );
 
   Widget _bubble(_Message message) => Align(alignment: message.mine ? Alignment.centerRight : Alignment.centerLeft, child: Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(12), constraints: const BoxConstraints(maxWidth: 300), decoration: BoxDecoration(color: message.mine ? Theme.of(context).colorScheme.primaryContainer : Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(16)), child: Text(message.text)));
