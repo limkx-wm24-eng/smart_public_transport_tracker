@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:csv/csv.dart';
@@ -55,6 +54,9 @@ class GtfsStaticService {
   List<ShapePoint>? _cachedShapePoints;
   final Map<String, String?> _tripIdByStopId = {};
   Map<String, Set<String>>? _routeIdsByStopId;
+  Map<String, List<String>>? _stopIdsByRouteId;
+  Map<String, List<String>>? _orderedStopIdsByTrip;
+  Future<void>? _stopSequenceIndexFuture;
 
   Future<Archive> _getArchive() async {
     if (_cachedArchive != null) {
@@ -67,43 +69,37 @@ class GtfsStaticService {
     // splash screen would just sit there with no way out.
     final response = await http
         .get(
-      Uri.parse(
-        AppConstants.gtfsStaticUrl,
-      ),
-    )
+          Uri.parse(
+            AppConstants.gtfsStaticUrl,
+          ),
+        )
         .timeout(
-      const Duration(seconds: 20),
-      onTimeout: () => throw Exception(
-        'Timed out downloading GTFS-Static feed',
-      ),
-    );
+          const Duration(seconds: 20),
+          onTimeout: () => throw Exception(
+            'Timed out downloading GTFS-Static feed',
+          ),
+        );
 
     if (response.statusCode != 200) {
       throw Exception(
         'Failed to download GTFS-Static feed: '
-            'HTTP ${response.statusCode}',
+        'HTTP ${response.statusCode}',
       );
     }
 
-    final Uint8List bytes =
-        response.bodyBytes;
+    final Uint8List bytes = response.bodyBytes;
 
-    _cachedArchive =
-        ZipDecoder().decodeBytes(bytes);
+    _cachedArchive = ZipDecoder().decodeBytes(bytes);
 
     return _cachedArchive!;
   }
 
   Future<List<Map<String, dynamic>>> _parseCsvFile(
-      Archive archive,
-      String fileName,
-      ) async {
+    Archive archive,
+    String fileName,
+  ) async {
     final file = archive.files.firstWhere(
-          (f) =>
-          f.name
-              .toLowerCase()
-              .endsWith(fileName),
-
+      (f) => f.name.toLowerCase().endsWith(fileName),
       orElse: () => throw Exception(
         '$fileName not found in GTFS feed',
       ),
@@ -123,13 +119,10 @@ class GtfsStaticService {
   // STOPS
   // =========================================================
 
-  Future<List<Stop>>
-  fetchStops() async {
-    final archive =
-    await _getArchive();
+  Future<List<Stop>> fetchStops() async {
+    final archive = await _getArchive();
 
-    final rows =
-    await _parseCsvFile(
+    final rows = await _parseCsvFile(
       archive,
       'stops.txt',
     );
@@ -137,8 +130,7 @@ class GtfsStaticService {
     final stops = <Stop>[];
 
     for (final row in rows) {
-      final stop =
-      Stop.fromCsvRow(row);
+      final stop = Stop.fromCsvRow(row);
 
       if (stop.stopId.isNotEmpty) {
         stops.add(stop);
@@ -152,23 +144,18 @@ class GtfsStaticService {
   // ROUTES
   // =========================================================
 
-  Future<List<TransitRoute>>
-  fetchRoutes() async {
-    final archive =
-    await _getArchive();
+  Future<List<TransitRoute>> fetchRoutes() async {
+    final archive = await _getArchive();
 
-    final rows =
-    await _parseCsvFile(
+    final rows = await _parseCsvFile(
       archive,
       'routes.txt',
     );
 
-    final routes =
-    <TransitRoute>[];
+    final routes = <TransitRoute>[];
 
     for (final row in rows) {
-      final route =
-      TransitRoute.fromCsvRow(
+      final route = TransitRoute.fromCsvRow(
         row,
       );
 
@@ -184,27 +171,22 @@ class GtfsStaticService {
   // TRIPS
   // =========================================================
 
-  Future<List<TransitTrip>>
-  fetchTrips() async {
+  Future<List<TransitTrip>> fetchTrips() async {
     if (_cachedTrips != null) {
       return _cachedTrips!;
     }
 
-    final archive =
-    await _getArchive();
+    final archive = await _getArchive();
 
-    final rows =
-    await _parseCsvFile(
+    final rows = await _parseCsvFile(
       archive,
       'trips.txt',
     );
 
-    final trips =
-    <TransitTrip>[];
+    final trips = <TransitTrip>[];
 
     for (final row in rows) {
-      final trip =
-      TransitTrip.fromCsvRow(
+      final trip = TransitTrip.fromCsvRow(
         row,
       );
 
@@ -222,27 +204,22 @@ class GtfsStaticService {
   // SHAPE POINTS
   // =========================================================
 
-  Future<List<ShapePoint>>
-  fetchShapePoints() async {
+  Future<List<ShapePoint>> fetchShapePoints() async {
     if (_cachedShapePoints != null) {
       return _cachedShapePoints!;
     }
 
-    final archive =
-    await _getArchive();
+    final archive = await _getArchive();
 
-    final rows =
-    await _parseCsvFile(
+    final rows = await _parseCsvFile(
       archive,
       'shapes.txt',
     );
 
-    final points =
-    <ShapePoint>[];
+    final points = <ShapePoint>[];
 
     for (final row in rows) {
-      final point =
-      ShapePoint.fromCsvRow(
+      final point = ShapePoint.fromCsvRow(
         row,
       );
 
@@ -250,8 +227,7 @@ class GtfsStaticService {
         continue;
       }
 
-      if (point.lat == 0 &&
-          point.lng == 0) {
+      if (point.lat == 0 && point.lng == 0) {
         continue;
       }
 
@@ -267,12 +243,10 @@ class GtfsStaticService {
   // FIND SHAPE ID FOR TRIP
   // =========================================================
 
-  Future<String?>
-  findShapeIdForTrip(
-      String tripId,
-      ) async {
-    final trips =
-    await fetchTrips();
+  Future<String?> findShapeIdForTrip(
+    String tripId,
+  ) async {
+    final trips = await fetchTrips();
 
     for (final trip in trips) {
       if (trip.tripId == tripId) {
@@ -327,28 +301,119 @@ class GtfsStaticService {
     return _routeIdsByStopId![stopId] ?? <String>{};
   }
 
+  /// Returns stop IDs served by [routeId]. This is useful for planner
+  /// fallback routes where the exact destination stop is not served, but a
+  /// route can still bring the user close enough to walk.
+  Future<List<String>> findStopIdsForRoute(String routeId) async {
+    if (_stopIdsByRouteId == null) {
+      final trips = await fetchTrips();
+      final routeByTrip = {for (final trip in trips) trip.tripId: trip.routeId};
+      final archive = await _getArchive();
+      final rows = await _parseCsvFile(archive, 'stop_times.txt');
+      final index = <String, List<MapEntry<int, String>>>{};
+      for (final row in rows) {
+        final tripId = row['trip_id']?.toString().trim() ?? '';
+        final id = row['stop_id']?.toString().trim() ?? '';
+        final routeId = routeByTrip[tripId];
+        if (id.isEmpty || routeId == null || routeId.isEmpty) continue;
+
+        final sequence =
+            int.tryParse(row['stop_sequence']?.toString().trim() ?? '') ?? 0;
+        index
+            .putIfAbsent(routeId, () => <MapEntry<int, String>>[])
+            .add(MapEntry(sequence, id));
+      }
+
+      _stopIdsByRouteId = {
+        for (final entry in index.entries)
+          entry.key: _uniqueStopIdsInOrder(entry.value),
+      };
+    }
+
+    return _stopIdsByRouteId![routeId] ?? const <String>[];
+  }
+
+  List<String> _uniqueStopIdsInOrder(List<MapEntry<int, String>> entries) {
+    entries.sort((a, b) => a.key.compareTo(b.key));
+    final seen = <String>{};
+    final ordered = <String>[];
+    for (final entry in entries) {
+      if (seen.add(entry.value)) {
+        ordered.add(entry.value);
+      }
+    }
+    return ordered;
+  }
+
+  /// Returns the stop_ids served by [tripId], in scheduled order
+  /// (stop_times.txt sorted by stop_sequence). Used by the AI-Estimated
+  /// Arrival Time feature to work out how many stops away a live bus
+  /// currently is from a target stop, instead of only looking at
+  /// straight-line distance.
+  Future<List<String>> getOrderedStopIdsForTrip(String tripId) async {
+    if (_orderedStopIdsByTrip == null) {
+      _stopSequenceIndexFuture ??= _buildStopSequenceIndex();
+      try {
+        await _stopSequenceIndexFuture;
+      } catch (_) {
+        _stopSequenceIndexFuture = null;
+        rethrow;
+      }
+    }
+
+    return _orderedStopIdsByTrip![tripId] ?? const <String>[];
+  }
+
+  Future<void> _buildStopSequenceIndex() async {
+    final archive = await _getArchive();
+    final rows = await _parseCsvFile(archive, 'stop_times.txt');
+
+    final entriesByTrip = <String, List<MapEntry<int, String>>>{};
+
+    for (final row in rows) {
+      final rowTripId = row['trip_id']?.toString().trim() ?? '';
+      if (rowTripId.isEmpty) continue;
+
+      final stopId = row['stop_id']?.toString().trim() ?? '';
+      if (stopId.isEmpty) {
+        continue;
+      }
+
+      final sequence =
+          int.tryParse(row['stop_sequence']?.toString().trim() ?? '') ?? 0;
+
+      entriesByTrip
+          .putIfAbsent(rowTripId, () => <MapEntry<int, String>>[])
+          .add(MapEntry(sequence, stopId));
+    }
+
+    _orderedStopIdsByTrip = {
+      for (final entry in entriesByTrip.entries)
+        entry.key: (entry.value..sort((a, b) => a.key.compareTo(b.key)))
+            .map((e) => e.value)
+            .toList(),
+    };
+  }
+
   // =========================================================
   // GET SHAPE POINTS FOR SHAPE ID
   // =========================================================
 
-  Future<List<ShapePoint>>
-  fetchShapeForId(
-      String shapeId,
-      ) async {
-    final allPoints =
-    await fetchShapePoints();
+  Future<List<ShapePoint>> fetchShapeForId(
+    String shapeId,
+  ) async {
+    final allPoints = await fetchShapePoints();
 
-    final routePoints =
-    allPoints.where(
-          (point) =>
-      point.shapeId == shapeId,
-    ).toList();
+    final routePoints = allPoints
+        .where(
+          (point) => point.shapeId == shapeId,
+        )
+        .toList();
 
     routePoints.sort(
-          (a, b) =>
-          a.sequence.compareTo(
-            b.sequence,
-          ),
+      (a, b) => a.sequence.compareTo(
+        b.sequence,
+      ),
     );
 
     return routePoints;
@@ -364,5 +429,8 @@ class GtfsStaticService {
     _cachedShapePoints = null;
     _tripIdByStopId.clear();
     _routeIdsByStopId = null;
+    _stopIdsByRouteId = null;
+    _orderedStopIdsByTrip = null;
+    _stopSequenceIndexFuture = null;
   }
 }

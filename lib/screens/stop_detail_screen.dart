@@ -10,6 +10,7 @@ import '../models/stop.dart';
 import '../models/vehicle_position.dart';
 import '../providers/favourites_provider.dart';
 import '../providers/transit_provider.dart';
+import 'ai_eta_screen.dart';
 
 /// Shows live buses near a selected stop.
 ///
@@ -53,7 +54,8 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
         return;
       }
       _routeVehicleId = stop.stopId;
-      final points = await context.read<TransitProvider>().getRouteShapeForStop(stop);
+      final points =
+          await context.read<TransitProvider>().getRouteShapeForStop(stop);
       if (mounted && _routeVehicleId == stop.stopId) {
         setState(() {
           _routePoints = points;
@@ -67,7 +69,8 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
     }
 
     _routeVehicleId = bus.vehicleId;
-    final points = await context.read<TransitProvider>().getRouteShapeForVehicle(bus);
+    final points =
+        await context.read<TransitProvider>().getRouteShapeForVehicle(bus);
     if (mounted && _routeVehicleId == bus.vehicleId) {
       setState(() {
         _routePoints = points;
@@ -77,9 +80,8 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
   }
 
   void _fitMap(List<VehiclePosition> buses) {
-    final busesKey = buses
-        .map((bus) => '${bus.vehicleId}:${bus.lat}:${bus.lng}')
-        .join('|');
+    final busesKey =
+        buses.map((bus) => '${bus.vehicleId}:${bus.lat}:${bus.lng}').join('|');
     if (busesKey != _visibleBusesKey) {
       _visibleBusesKey = busesKey;
       _hasFittedCamera = false;
@@ -166,17 +168,13 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final transit =
-    context.watch<TransitProvider>();
+    final transit = context.watch<TransitProvider>();
 
-    final favourites =
-    context.watch<FavouritesProvider>();
+    final favourites = context.watch<FavouritesProvider>();
 
-    final isFav =
-    favourites.isFavourite(stop.stopId);
+    final isFav = favourites.isFavourite(stop.stopId);
 
-    final nearbyBuses =
-    transit.vehiclesNearStop(
+    final nearbyBuses = transit.vehiclesNearStop(
       stop,
       radiusKm: 1.0,
     );
@@ -196,7 +194,6 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
         title: Text(
           stop.name,
         ),
-
         actions: [
           // Refresh live bus positions
           IconButton(
@@ -205,10 +202,7 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
               Icons.refresh,
             ),
             onPressed: () async {
-
-              await context
-                  .read<TransitProvider>()
-                  .refreshVehicles();
+              await context.read<TransitProvider>().refreshVehicles();
             },
           ),
 
@@ -216,40 +210,23 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
           IconButton(
             tooltip: 'Favourite stop',
             icon: Icon(
-              isFav
-                  ? Icons.star
-                  : Icons.star_border,
-
-              color:
-              isFav
-                  ? Colors.amber
-                  : null,
+              isFav ? Icons.star : Icons.star_border,
+              color: isFav ? Colors.amber : null,
             ),
-
             onPressed: () {
-              context
-                  .read<FavouritesProvider>()
-                  .toggleFavourite(stop);
+              context.read<FavouritesProvider>().toggleFavourite(stop);
             },
           ),
         ],
       ),
-
       body: RefreshIndicator(
         onRefresh: () {
-          return context
-              .read<TransitProvider>()
-              .refreshVehicles();
+          return context.read<TransitProvider>().refreshVehicles();
         },
-
         child: ListView(
           controller: _scrollController,
-          physics:
-          const AlwaysScrollableScrollPhysics(),
-
-          padding:
-          const EdgeInsets.all(16),
-
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
           children: [
             // =================================================
             // LIVE STOP MAP
@@ -261,65 +238,74 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: FlutterMap(
-                  mapController: _mapController,
-                  options: MapOptions(
-                    initialCenter: LatLng(stop.lat, stop.lng),
-                    initialZoom: 15,
-                  ),
-                  children: [
-                    TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.example.smart_public_transport_tracker',
-                    ),
-                    if (_routePoints.isNotEmpty)
-                      PolylineLayer(
-                        polylines: [
-                          Polyline(
-                            points: _routePoints,
-                            strokeWidth: 5,
-                            color: Colors.blue,
-                          ),
-                        ],
+                      mapController: _mapController,
+                      options: MapOptions(
+                        initialCenter: LatLng(stop.lat, stop.lng),
+                        initialZoom: 15,
                       ),
-                    MarkerLayer(
-                      markers: [
-                        ..._routeDirectionMarkers(),
-                        Marker(
-                          point: LatLng(stop.lat, stop.lng),
-                          width: 48,
-                          height: 48,
-                          child: const Icon(Icons.location_on, color: Colors.red, size: 42),
+                      children: [
+                        TileLayer(
+                          urlTemplate:
+                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          userAgentPackageName:
+                              'com.example.smart_public_transport_tracker',
                         ),
-                        ...nearbyBuses.map((bus) => Marker(
-                          point: LatLng(bus.lat, bus.lng),
-                          width: 52,
-                          height: 52,
-                          child: GestureDetector(
-                            onTap: () => _showBusDetails(context, bus),
-                            child: Transform.rotate(
-                              angle: (bus.bearing ?? 0) * 3.141592653589793 / 180,
-                              child: Icon(
-                                Icons.directions_bus_filled,
-                                color: bus.vehicleId == routeBus?.vehicleId
-                                    ? Colors.blueAccent
-                                    : Colors.deepOrange,
-                                size: bus.vehicleId == routeBus?.vehicleId
-                                    ? 44
-                                    : 38,
+                        if (_routePoints.isNotEmpty)
+                          PolylineLayer(
+                            polylines: [
+                              Polyline(
+                                points: _routePoints,
+                                strokeWidth: 5,
+                                color: Colors.blue,
                               ),
-                            ),
+                            ],
                           ),
-                        )),
+                        MarkerLayer(
+                          markers: [
+                            ..._routeDirectionMarkers(),
+                            Marker(
+                              point: LatLng(stop.lat, stop.lng),
+                              width: 48,
+                              height: 48,
+                              child: const Icon(Icons.location_on,
+                                  color: Colors.red, size: 42),
+                            ),
+                            ...nearbyBuses.map((bus) => Marker(
+                                  point: LatLng(bus.lat, bus.lng),
+                                  width: 52,
+                                  height: 52,
+                                  child: GestureDetector(
+                                    onTap: () => _showBusDetails(context, bus),
+                                    child: Transform.rotate(
+                                      angle: (bus.bearing ?? 0) *
+                                          3.141592653589793 /
+                                          180,
+                                      child: Icon(
+                                        Icons.directions_bus_filled,
+                                        color:
+                                            bus.vehicleId == routeBus?.vehicleId
+                                                ? Colors.blueAccent
+                                                : Colors.deepOrange,
+                                        size:
+                                            bus.vehicleId == routeBus?.vehicleId
+                                                ? 44
+                                                : 38,
+                                      ),
+                                    ),
+                                  ),
+                                )),
+                          ],
+                        ),
                       ],
-                    ),
-                  ],
                     ),
                   ),
                   Positioned(
                     top: 12,
                     right: 12,
                     child: FilledButton.tonalIcon(
-                      onPressed: () => context.read<FavouritesProvider>().toggleFavourite(stop),
+                      onPressed: () => context
+                          .read<FavouritesProvider>()
+                          .toggleFavourite(stop),
                       icon: Icon(isFav ? Icons.star : Icons.star_border),
                       label: const Text('Favourite stop'),
                     ),
@@ -354,13 +340,9 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
 
             Card(
               child: Padding(
-                padding:
-                const EdgeInsets.all(16),
-
+                padding: const EdgeInsets.all(16),
                 child: Column(
-                  crossAxisAlignment:
-                  CrossAxisAlignment.start,
-
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
@@ -369,50 +351,39 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
                           color: Colors.red,
                           size: 28,
                         ),
-
                         const SizedBox(
                           width: 8,
                         ),
-
                         Expanded(
                           child: Text(
                             stop.name,
-
-                            style:
-                            const TextStyle(
+                            style: const TextStyle(
                               fontSize: 19,
-                              fontWeight:
-                              FontWeight.bold,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                       ],
                     ),
-
                     const SizedBox(
                       height: 12,
                     ),
-
                     Text(
                       'Stop ID: ${stop.stopId}',
                     ),
-
                     const SizedBox(
                       height: 4,
                     ),
-
                     Text(
                       'Latitude: '
-                          '${stop.lat.toStringAsFixed(6)}',
+                      '${stop.lat.toStringAsFixed(6)}',
                     ),
-
                     const SizedBox(
                       height: 4,
                     ),
-
                     Text(
                       'Longitude: '
-                          '${stop.lng.toStringAsFixed(6)}',
+                      '${stop.lng.toStringAsFixed(6)}',
                     ),
                   ],
                 ),
@@ -429,40 +400,27 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
 
             Container(
               width: double.infinity,
-
-              padding:
-              const EdgeInsets.all(14),
-
-              decoration:
-              BoxDecoration(
-                color: Theme.of(context)
-                    .colorScheme
-                    .surfaceContainerHighest,
-
-                borderRadius:
-                BorderRadius.circular(12),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(12),
               ),
-
               child: const Row(
-                crossAxisAlignment:
-                CrossAxisAlignment.start,
-
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(
                     Icons.info_outline,
                     size: 20,
                   ),
-
                   SizedBox(
                     width: 10,
                   ),
-
                   Expanded(
                     child: Text(
                       'The buses below are live vehicles '
-                          'currently detected near this stop. '
-                          'Tap a bus to view its live location '
-                          'on the map.',
+                      'currently detected near this stop. '
+                      'Tap a bus to view its live location '
+                      'on the map.',
                     ),
                   ),
                 ],
@@ -480,26 +438,17 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
             Row(
               children: [
                 const Icon(
-                  Icons
-                      .directions_bus_filled_rounded,
+                  Icons.directions_bus_filled_rounded,
                 ),
-
                 const SizedBox(
                   width: 8,
                 ),
-
                 Text(
                   'Live buses nearby '
-                      '(${nearbyBuses.length})',
-
-                  style:
-                  Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(
-                    fontWeight:
-                    FontWeight.bold,
-                  ),
+                  '(${nearbyBuses.length})',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
               ],
             ),
@@ -515,6 +464,22 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
               ),
             ),
 
+            if (nearbyBuses.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 12, bottom: 4),
+                child: FilledButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => AiEtaScreen(initialStop: stop),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.auto_awesome),
+                  label: const Text('Plan trip from here'),
+                ),
+              ),
+
             const SizedBox(
               height: 14,
             ),
@@ -523,16 +488,12 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
             // INITIAL LOADING
             // =================================================
 
-            if (transit.vehiclesStatus ==
-                LoadStatus.loading &&
+            if (transit.vehiclesStatus == LoadStatus.loading &&
                 transit.vehicles.isEmpty)
               const Padding(
-                padding:
-                EdgeInsets.all(30),
-
+                padding: EdgeInsets.all(30),
                 child: Center(
-                  child:
-                  CircularProgressIndicator(),
+                  child: CircularProgressIndicator(),
                 ),
               ),
 
@@ -540,66 +501,49 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
             // NO BUS FOUND
             // =================================================
 
-            if (transit.vehiclesStatus !=
-                LoadStatus.loading &&
+            if (transit.vehiclesStatus != LoadStatus.loading &&
                 nearbyBuses.isEmpty)
               Card(
                 child: Padding(
-                  padding:
-                  const EdgeInsets.all(24),
-
+                  padding: const EdgeInsets.all(24),
                   child: Column(
                     children: [
                       const Icon(
-                        Icons
-                            .directions_bus_outlined,
+                        Icons.directions_bus_outlined,
                         size: 55,
                         color: Colors.grey,
                       ),
-
                       const SizedBox(
                         height: 12,
                       ),
-
                       const Text(
                         'No live buses nearby',
-                        style:
-                        TextStyle(
+                        style: TextStyle(
                           fontSize: 17,
-                          fontWeight:
-                          FontWeight.bold,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-
                       const SizedBox(
                         height: 8,
                       ),
-
                       const Text(
                         'No live bus is currently '
-                            'within 1 km of this stop.',
-                        textAlign:
-                        TextAlign.center,
+                        'within 1 km of this stop.',
+                        textAlign: TextAlign.center,
                       ),
-
                       const SizedBox(
                         height: 16,
                       ),
-
                       FilledButton.icon(
                         onPressed: () async {
                           await context
                               .read<TransitProvider>()
                               .refreshVehicles();
                         },
-
-                        icon:
-                        const Icon(
+                        icon: const Icon(
                           Icons.refresh,
                         ),
-
-                        label:
-                        const Text(
+                        label: const Text(
                           'Refresh',
                         ),
                       ),
@@ -613,22 +557,20 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
             // =================================================
 
             ...nearbyBuses.map(
-                  (bus) {
-                final distance =
-                transit.distanceToVehicle(
+              (bus) {
+                final distance = transit.distanceToVehicle(
                   stop,
                   bus,
                 );
 
                 return _LiveBusTile(
                   bus: bus,
-                  distanceMeters:
-                  distance,
-
+                  stop: stop,
+                  distanceMeters: distance,
                   onTap: () {
                     debugPrint(
                       'CLICKED BUS: '
-                          '${bus.vehicleId}',
+                      '${bus.vehicleId}',
                     );
 
                     _focusBus(bus);
@@ -655,7 +597,8 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Vehicle: ${bus.vehicleId}', style: Theme.of(context).textTheme.titleMedium),
+            Text('Vehicle: ${bus.vehicleId}',
+                style: Theme.of(context).textTheme.titleMedium),
             Text('Route: ${bus.routeId ?? 'Unknown'}'),
             Text('Trip: ${bus.tripId ?? 'Unknown'}'),
           ],
@@ -669,16 +612,16 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
 // LIVE BUS TILE
 // ============================================================
 
-class _LiveBusTile
-    extends StatelessWidget {
+class _LiveBusTile extends StatelessWidget {
   final VehiclePosition bus;
-
+  final Stop stop;
   final double distanceMeters;
 
   final VoidCallback onTap;
 
   const _LiveBusTile({
     required this.bus,
+    required this.stop,
     required this.distanceMeters,
     required this.onTap,
   });
@@ -686,61 +629,43 @@ class _LiveBusTile
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin:
-      const EdgeInsets.only(
+      margin: const EdgeInsets.only(
         bottom: 10,
       ),
-
       child: ListTile(
         onTap: onTap,
-
         leading: CircleAvatar(
-          backgroundColor:
-          Theme.of(context)
-              .colorScheme
-              .primaryContainer,
-
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
           child: const Icon(
-            Icons
-                .directions_bus_filled_rounded,
+            Icons.directions_bus_filled_rounded,
           ),
         ),
-
         title: Text(
-          bus.routeId != null &&
-              bus.routeId!.isNotEmpty
+          bus.routeId != null && bus.routeId!.isNotEmpty
               ? 'Route ${bus.routeId}'
               : 'Live Bus',
         ),
-
         subtitle: Column(
-          crossAxisAlignment:
-          CrossAxisAlignment.start,
-
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(
               height: 4,
             ),
-
             Text(
               'Bus ID: '
-                  '${bus.vehicleId}',
+              '${bus.vehicleId}',
             ),
-
             const SizedBox(
               height: 2,
             ),
-
             Text(
               _distanceLabel(
                 distanceMeters,
               ),
             ),
-
             const SizedBox(
               height: 3,
             ),
-
             const Text(
               'Tap to view live location',
               style: TextStyle(
@@ -748,10 +673,32 @@ class _LiveBusTile
                 color: Colors.grey,
               ),
             ),
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => AiEtaScreen(initialStop: stop),
+                    ),
+                  );
+                },
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(50, 30),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                icon: const Icon(Icons.auto_awesome, size: 14),
+                label: const Text(
+                  'Plan trip',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ),
+            ),
           ],
         ),
-        trailing:
-        Column(
+        trailing: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
@@ -772,14 +719,13 @@ class _LiveBusTile
   }
 
   String _distanceLabel(
-      double meters,
-      ) {
+    double meters,
+  ) {
     if (meters < 1000) {
       return '${meters.toStringAsFixed(0)} m away';
     }
 
-    final km =
-        meters / 1000;
+    final km = meters / 1000;
 
     return '${km.toStringAsFixed(2)} km away';
   }

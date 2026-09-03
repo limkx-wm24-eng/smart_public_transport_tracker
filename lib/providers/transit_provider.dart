@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../core/constants.dart';
@@ -25,7 +25,7 @@ enum LoadStatus {
   error,
 }
 
-class TransitProvider extends ChangeNotifier {
+class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
   final GtfsStaticService _staticService = GtfsStaticService();
   final GtfsRealtimeService _realtimeService = GtfsRealtimeService();
   final DatabaseService _db = DatabaseService.instance;
@@ -42,6 +42,11 @@ class TransitProvider extends ChangeNotifier {
   Timer? _pollTimer;
 
   bool _isRefreshingVehicles = false;
+  DateTime? _lastVehicleRefresh;
+
+  TransitProvider() {
+    WidgetsBinding.instance.addObserver(this);
+  }
 
   // ============================================================
   // GETTERS
@@ -120,14 +125,12 @@ class TransitProvider extends ChangeNotifier {
 
           debugPrint(
             'Showing ${_stops.length} cached stops '
-                'while checking for a refresh.',
+            'while checking for a refresh.',
           );
         }
       }
 
-      final needsRefresh =
-          forceRefresh ||
-              await _db.shouldRefreshStops();
+      final needsRefresh = forceRefresh || await _db.shouldRefreshStops();
 
       debugPrint(
         'GTFS static refresh required: $needsRefresh',
@@ -136,11 +139,9 @@ class TransitProvider extends ChangeNotifier {
       if (needsRefresh || _stops.isEmpty) {
         _staticService.clearCache();
 
-        final freshStops =
-        await _staticService.fetchStops();
+        final freshStops = await _staticService.fetchStops();
 
-        final freshRoutes =
-        await _staticService.fetchRoutes();
+        final freshRoutes = await _staticService.fetchRoutes();
 
         await _db.replaceStops(
           freshStops,
@@ -159,12 +160,12 @@ class TransitProvider extends ChangeNotifier {
 
       debugPrint(
         'Stops successfully loaded: '
-            '${_stops.length}',
+        '${_stops.length}',
       );
 
       debugPrint(
         'Routes successfully loaded: '
-            '${_routes.length}',
+        '${_routes.length}',
       );
     } catch (e, stackTrace) {
       debugPrint(
@@ -175,22 +176,18 @@ class TransitProvider extends ChangeNotifier {
         '$stackTrace',
       );
 
-      _errorMessage =
-      'Could not load stops: $e';
+      _errorMessage = 'Could not load stops: $e';
 
-      _stopsStatus =
-          LoadStatus.error;
+      _stopsStatus = LoadStatus.error;
 
       try {
-        _stops =
-        await _db.getAllStops();
+        _stops = await _db.getAllStops();
 
-        _routes =
-        await _db.getAllRoutes();
+        _routes = await _db.getAllRoutes();
       } catch (dbError) {
         debugPrint(
           'Database fallback error: '
-              '$dbError',
+          '$dbError',
         );
       }
     }
@@ -203,10 +200,20 @@ class TransitProvider extends ChangeNotifier {
   // ============================================================
 
   Future<void> refreshVehicles() async {
+    final lastRefresh = _lastVehicleRefresh;
+    if (lastRefresh != null &&
+        DateTime.now().difference(lastRefresh) < const Duration(seconds: 10)) {
+      debugPrint(
+        'Vehicle refresh skipped: recently refreshed.',
+      );
+
+      return;
+    }
+
     if (_isRefreshingVehicles) {
       debugPrint(
         'Vehicle refresh skipped: '
-            'another request is still running.',
+        'another request is still running.',
       );
 
       return;
@@ -215,8 +222,7 @@ class TransitProvider extends ChangeNotifier {
     _isRefreshingVehicles = true;
 
     try {
-      _vehiclesStatus =
-          LoadStatus.loading;
+      _vehiclesStatus = LoadStatus.loading;
 
       notifyListeners();
 
@@ -228,43 +234,39 @@ class TransitProvider extends ChangeNotifier {
         'Refreshing live buses...',
       );
 
-      final vehicles =
-      await _realtimeService
-          .fetchVehiclePositions();
+      final vehicles = await _realtimeService.fetchVehiclePositions();
 
       _vehicles = vehicles;
+      _lastVehicleRefresh = DateTime.now();
 
       debugPrint(
         'TransitProvider received '
-            '${_vehicles.length} live buses',
+        '${_vehicles.length} live buses',
       );
 
-      for (final vehicle
-      in _vehicles.take(5)) {
+      for (final vehicle in _vehicles.take(5)) {
         debugPrint(
           'Bus ${vehicle.vehicleId}: '
-              '${vehicle.lat}, '
-              '${vehicle.lng} '
-              'route=${vehicle.routeId} '
-              'trip=${vehicle.tripId}',
+          '${vehicle.lat}, '
+          '${vehicle.lng} '
+          'route=${vehicle.routeId} '
+          'trip=${vehicle.tripId}',
         );
       }
 
       if (_vehicles.isEmpty) {
         debugPrint(
           'WARNING: GTFS API returned '
-              '0 usable vehicles.',
+          '0 usable vehicles.',
         );
 
-        _errorMessage =
-        'Realtime service is online, '
+        _errorMessage = 'Realtime service is online, '
             'but no buses are currently being reported.';
       } else {
         _errorMessage = null;
       }
 
-      _vehiclesStatus =
-          LoadStatus.ready;
+      _vehiclesStatus = LoadStatus.ready;
     } catch (e, stackTrace) {
       debugPrint(
         'Live bus error: $e',
@@ -274,13 +276,9 @@ class TransitProvider extends ChangeNotifier {
         '$stackTrace',
       );
 
-      _vehiclesStatus =
-      _vehicles.isEmpty
-          ? LoadStatus.error
-          : LoadStatus.ready;
+      _vehiclesStatus = _vehicles.isEmpty ? LoadStatus.error : LoadStatus.ready;
 
-      _errorMessage =
-      'Live tracking temporarily unavailable: $e';
+      _errorMessage = 'Live tracking temporarily unavailable: $e';
     } finally {
       _isRefreshingVehicles = false;
     }
@@ -297,17 +295,38 @@ class TransitProvider extends ChangeNotifier {
 
     debugPrint(
       'Starting realtime bus polling '
-          'every '
-          '${AppConstants.realtimePollInterval.inSeconds} '
-          'seconds',
+      'every '
+      '${AppConstants.realtimePollInterval.inSeconds} '
+      'seconds',
     );
 
     _pollTimer = Timer.periodic(
       AppConstants.realtimePollInterval,
-          (_) {
+      (_) {
         refreshVehicles();
       },
     );
+  }
+
+  void stopPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = null;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      refreshVehicles();
+      startPolling();
+      return;
+    }
+
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
+      stopPolling();
+    }
   }
 
   // ============================================================
@@ -315,22 +334,18 @@ class TransitProvider extends ChangeNotifier {
   // ============================================================
 
   List<Stop> searchStopsLocally(
-      String query,
-      ) {
+    String query,
+  ) {
     if (query.trim().isEmpty) {
       return [];
     }
 
-    final q =
-    query.trim().toLowerCase();
+    final q = query.trim().toLowerCase();
 
     return _stops
         .where(
-          (stop) =>
-          stop.name
-              .toLowerCase()
-              .contains(q),
-    )
+          (stop) => stop.name.toLowerCase().contains(q),
+        )
         .toList();
   }
 
@@ -339,43 +354,36 @@ class TransitProvider extends ChangeNotifier {
   // ============================================================
 
   List<VehiclePosition> vehiclesNearStop(
-      Stop stop, {
-        double radiusKm = 1.0,
-      }) {
-    const Distance distance =
-    Distance();
+    Stop stop, {
+    double radiusKm = 1.0,
+  }) {
+    const Distance distance = Distance();
 
-    final stopLocation =
-    LatLng(
+    final stopLocation = LatLng(
       stop.lat,
       stop.lng,
     );
 
-    final nearbyVehicles =
-    _vehicles.where(
-          (vehicle) {
-        final vehicleLocation =
-        LatLng(
+    final nearbyVehicles = _vehicles.where(
+      (vehicle) {
+        final vehicleLocation = LatLng(
           vehicle.lat,
           vehicle.lng,
         );
 
-        final distanceInMeters =
-        distance.as(
+        final distanceInMeters = distance.as(
           LengthUnit.Meter,
           stopLocation,
           vehicleLocation,
         );
 
-        return distanceInMeters <=
-            radiusKm * 1000;
+        return distanceInMeters <= radiusKm * 1000;
       },
     ).toList();
 
     nearbyVehicles.sort(
-          (a, b) {
-        final distanceA =
-        distance.as(
+      (a, b) {
+        final distanceA = distance.as(
           LengthUnit.Meter,
           stopLocation,
           LatLng(
@@ -384,8 +392,7 @@ class TransitProvider extends ChangeNotifier {
           ),
         );
 
-        final distanceB =
-        distance.as(
+        final distanceB = distance.as(
           LengthUnit.Meter,
           stopLocation,
           LatLng(
@@ -402,8 +409,8 @@ class TransitProvider extends ChangeNotifier {
 
     debugPrint(
       'Found ${nearbyVehicles.length} '
-          'live buses within $radiusKm km '
-          'of ${stop.name}',
+      'live buses within $radiusKm km '
+      'of ${stop.name}',
     );
 
     return nearbyVehicles;
@@ -414,11 +421,10 @@ class TransitProvider extends ChangeNotifier {
   // ============================================================
 
   double distanceToVehicle(
-      Stop stop,
-      VehiclePosition vehicle,
-      ) {
-    const Distance distance =
-    Distance();
+    Stop stop,
+    VehiclePosition vehicle,
+  ) {
+    const Distance distance = Distance();
 
     return distance.as(
       LengthUnit.Meter,
@@ -438,12 +444,10 @@ class TransitProvider extends ChangeNotifier {
   // ============================================================
 
   VehiclePosition? findVehicleById(
-      String vehicleId,
-      ) {
-    for (final vehicle
-    in _vehicles) {
-      if (vehicle.vehicleId ==
-          vehicleId) {
+    String vehicleId,
+  ) {
+    for (final vehicle in _vehicles) {
+      if (vehicle.vehicleId == vehicleId) {
         return vehicle;
       }
     }
@@ -456,18 +460,16 @@ class TransitProvider extends ChangeNotifier {
   // ============================================================
 
   Future<List<LatLng>> getRouteShapeForVehicle(
-      VehiclePosition vehicle,
-      ) async {
-    final tripId =
-        vehicle.tripId;
+    VehiclePosition vehicle,
+  ) async {
+    final tripId = vehicle.tripId;
 
     // We need tripId to determine the correct GTFS shape.
-    if (tripId == null ||
-        tripId.isEmpty) {
+    if (tripId == null || tripId.isEmpty) {
       debugPrint(
         'Cannot load route shape: '
-            'bus ${vehicle.vehicleId} '
-            'has no tripId.',
+        'bus ${vehicle.vehicleId} '
+        'has no tripId.',
       );
 
       return [];
@@ -499,17 +501,14 @@ class TransitProvider extends ChangeNotifier {
       // trip_id -> shape_id
       // --------------------------------------------------------
 
-      final shapeId =
-      await _staticService
-          .findShapeIdForTrip(
+      final shapeId = await _staticService.findShapeIdForTrip(
         tripId,
       );
 
-      if (shapeId == null ||
-          shapeId.isEmpty) {
+      if (shapeId == null || shapeId.isEmpty) {
         debugPrint(
           'No shape ID found '
-              'for trip $tripId',
+          'for trip $tripId',
         );
 
         return [];
@@ -524,16 +523,14 @@ class TransitProvider extends ChangeNotifier {
       // shape_id -> route coordinates
       // --------------------------------------------------------
 
-      final shapePoints =
-      await _staticService
-          .fetchShapeForId(
+      final shapePoints = await _staticService.fetchShapeForId(
         shapeId,
       );
 
       if (shapePoints.isEmpty) {
         debugPrint(
           'No shape points found '
-              'for shape $shapeId',
+          'for shape $shapeId',
         );
 
         return [];
@@ -544,9 +541,8 @@ class TransitProvider extends ChangeNotifier {
       // Convert ShapePoint -> LatLng
       // --------------------------------------------------------
 
-      final routePoints =
-      shapePoints.map(
-            (point) {
+      final routePoints = shapePoints.map(
+        (point) {
           return LatLng(
             point.lat,
             point.lng,
@@ -556,13 +552,13 @@ class TransitProvider extends ChangeNotifier {
 
       debugPrint(
         'Loaded '
-            '${routePoints.length} '
-            'route points.',
+        '${routePoints.length} '
+        'route points.',
       );
 
       debugPrint(
         'Route successfully loaded '
-            'for ${vehicle.vehicleId}',
+        'for ${vehicle.vehicleId}',
       );
 
       debugPrint(
@@ -587,6 +583,10 @@ class TransitProvider extends ChangeNotifier {
   Future<Set<String>> routeIdsForStop(Stop stop) =>
       _staticService.findRouteIdsForStop(stop.stopId);
 
+  /// GTFS-static stop IDs served by a route, used by planner fallback search.
+  Future<List<String>> stopIdsForRoute(String routeId) =>
+      _staticService.findStopIdsForRoute(routeId);
+
   /// Loads one GTFS route shape that serves [stop]. This provides a route
   /// preview even when no live vehicle is currently within the nearby range.
   Future<List<LatLng>> getRouteShapeForStop(Stop stop) async {
@@ -602,9 +602,7 @@ class TransitProvider extends ChangeNotifier {
       }
 
       final shapePoints = await _staticService.fetchShapeForId(shapeId);
-      return shapePoints
-          .map((point) => LatLng(point.lat, point.lng))
-          .toList();
+      return shapePoints.map((point) => LatLng(point.lat, point.lng)).toList();
     } catch (error) {
       debugPrint('Failed to load GTFS route for ${stop.stopId}: $error');
       return [];
@@ -617,7 +615,8 @@ class TransitProvider extends ChangeNotifier {
 
   @override
   void dispose() {
-    _pollTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    stopPolling();
 
     super.dispose();
   }

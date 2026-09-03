@@ -19,13 +19,15 @@ class AppConstants {
   static const String gtfsRealtimeBaseUrl =
       'https://api.data.gov.my/gtfs-realtime/vehicle-position/prasarana';
 
-  static String get gtfsStaticUrl => '$gtfsStaticBaseUrl?category=$gtfsCategory';
+  static String get gtfsStaticUrl =>
+      '$gtfsStaticBaseUrl?category=$gtfsCategory';
 
   static String get gtfsRealtimeUrl =>
       '$gtfsRealtimeBaseUrl?category=$gtfsCategory';
 
   // How often to poll the realtime feed for new vehicle positions.
-  static const Duration realtimePollInterval = Duration(seconds: 20);
+  // data.gov.my exposes GTFS-Realtime as an HTTP feed, not a push listener.
+  static const Duration realtimePollInterval = Duration(seconds: 45);
 
   // How long cached static data (stops/routes) stays valid before refresh.
   static const Duration staticDataMaxAge = Duration(hours: 24);
@@ -41,7 +43,8 @@ class AppConstants {
 
   // Supabase project credentials (remote database — favourites sync).
   static const String supabaseUrl = 'https://gxdumicthspqfvvmzjtz.supabase.co';
-  static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd4ZHVtaWN0aHNwcWZ2dm16anR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0MDQ3MDksImV4cCI6MjEwMjk4MDcwOX0.bGMN681VijMZlwyWLF5s8AU58y3A2Nq_wFaVu-O_YyU';
+  static const String supabaseAnonKey =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd4ZHVtaWN0aHNwcWZ2dm16anR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0MDQ3MDksImV4cCI6MjEwMjk4MDcwOX0.bGMN681VijMZlwyWLF5s8AU58y3A2Nq_wFaVu-O_YyU';
 
   // Where Supabase confirmation / password-reset email links send the user
   // back to. This custom scheme is registered in AndroidManifest.xml (Android)

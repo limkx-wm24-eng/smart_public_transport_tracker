@@ -12,7 +12,7 @@ Deno.serve(async (request) => {
     const apiKey = Deno.env.get('GEMINI_API_KEY');
     if (!apiKey) throw new Error('GEMINI_API_KEY is not configured.');
     const { mode, question, transportContext = {}, appContext = {} } = await request.json();
-    if (!['journey', 'support'].includes(mode) || typeof question !== 'string' || !question.trim()) {
+    if (!['journey', 'support', 'eta'].includes(mode) || typeof question !== 'string' || !question.trim()) {
       return Response.json({ error: 'A valid mode and question are required.' }, { status: 400, headers: corsHeaders });
     }
     const prompt = `${systemPrompt}\n\nMode: ${mode}\nUser question: ${question.trim()}\nTransport context (authoritative): ${JSON.stringify(transportContext)}\nApp context: ${JSON.stringify(appContext)}\n\nRespond using only the supplied facts for transport claims.`;
@@ -21,7 +21,19 @@ Deno.serve(async (request) => {
     const requestOptions = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.1, maxOutputTokens: 220 } }),
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 512,
+          // Some Gemini models spend part of the output budget on internal
+          // "thinking" tokens before the real answer. Explicitly disabling
+          // that (budget 0) keeps the whole 512-token budget for the actual
+          // reply, instead of it being cut off mid-sentence by reasoning
+          // tokens eating into maxOutputTokens.
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      }),
     };
     const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent';
     let response = await fetch(endpoint, requestOptions);
@@ -31,7 +43,14 @@ Deno.serve(async (request) => {
     }
     if (!response.ok) throw new Error(`Gemini request failed (${response.status}).`);
     const body = await response.json();
-    const answer = body?.candidates?.[0]?.content?.parts?.map((part: { text?: string }) => part.text ?? '').join('').trim();
+    // Defensively skip any part flagged as internal reasoning (part.thought
+    // === true) — only join the actual answer text, so a thinking fragment
+    // can never leak into (or replace) the visible reply.
+    const answer = body?.candidates?.[0]?.content?.parts
+      ?.filter((part: { text?: string; thought?: boolean }) => part.text && !part.thought)
+      ?.map((part: { text?: string }) => part.text ?? '')
+      .join('')
+      .trim();
     if (!answer) {
       return Response.json(
         { answer: 'I could not generate a reply just now. Please try again in a moment.' },
