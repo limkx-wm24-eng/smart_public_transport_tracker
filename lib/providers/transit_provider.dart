@@ -28,7 +28,8 @@ enum LoadStatus {
 class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
   final GtfsStaticService _staticService = GtfsStaticService();
   final GtfsStaticService _railStaticService = GtfsStaticService(
-    staticUrl: 'https://api.data.gov.my/gtfs-static/prasarana?category=rapid-rail-kl',
+    staticUrl:
+        'https://api.data.gov.my/gtfs-static/prasarana?category=rapid-rail-kl',
   );
   final GtfsRealtimeService _realtimeService = GtfsRealtimeService();
   final DatabaseService _db = DatabaseService.instance;
@@ -38,6 +39,8 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<TransitRoute> _railRoutes = [];
   Future<void>? _railRouteLoad;
   List<VehiclePosition> _vehicles = [];
+  DateTime? _vehiclesUpdatedAt;
+  bool _showingLastKnownVehicles = false;
 
   LoadStatus _stopsStatus = LoadStatus.initial;
   LoadStatus _vehiclesStatus = LoadStatus.initial;
@@ -62,6 +65,10 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<TransitRoute> get routes => _routes;
 
   List<VehiclePosition> get vehicles => _vehicles;
+
+  DateTime? get vehiclesUpdatedAt => _vehiclesUpdatedAt;
+
+  bool get showingLastKnownVehicles => _showingLastKnownVehicles;
 
   /// Converts the GTFS-Realtime internal route_id into the passenger-facing
   /// route_short_name from GTFS Static routes.txt. Realtime matching still
@@ -275,9 +282,15 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
       );
 
       final vehicles = await _realtimeService.fetchVehiclePositions();
-
-      _vehicles = vehicles;
       _lastVehicleRefresh = DateTime.now();
+
+      if (vehicles.isEmpty && _vehicles.isNotEmpty) {
+        _showingLastKnownVehicles = true;
+      } else {
+        _vehicles = vehicles;
+        _vehiclesUpdatedAt = vehicles.isEmpty ? null : _lastVehicleRefresh;
+        _showingLastKnownVehicles = false;
+      }
 
       debugPrint(
         'TransitProvider received '
@@ -294,14 +307,16 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
         );
       }
 
-      if (_vehicles.isEmpty) {
+      if (vehicles.isEmpty) {
         debugPrint(
           'WARNING: GTFS API returned '
           '0 usable vehicles.',
         );
 
-        _errorMessage = 'Realtime service is online, '
-            'but no buses are currently being reported.';
+        _errorMessage = _vehicles.isEmpty
+            ? 'Realtime is online, but no buses are being reported right now.'
+            : 'Realtime is online, but the latest feed is empty. '
+                'Showing last known bus positions.';
       } else {
         _errorMessage = null;
       }
