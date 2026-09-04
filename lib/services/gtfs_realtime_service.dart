@@ -1,8 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:gtfs_realtime_bindings/gtfs_realtime_bindings.dart'
-as gtfsrt;
+import 'package:gtfs_realtime_bindings/gtfs_realtime_bindings.dart' as gtfsrt;
 import 'package:http/http.dart' as http;
 
 import '../core/constants.dart';
@@ -10,8 +9,37 @@ import '../models/vehicle_position.dart';
 
 class GtfsRealtimeService {
   Future<List<VehiclePosition>> fetchVehiclePositions() async {
+    final allVehicles = <VehiclePosition>[];
+    final failures = <String>[];
+
+    for (final category in AppConstants.gtfsRealtimeCategories) {
+      try {
+        final vehicles = await _fetchVehiclePositionsForCategory(category);
+        allVehicles.addAll(vehicles);
+      } catch (error) {
+        failures.add('$category: $error');
+      }
+    }
+
+    if (allVehicles.isEmpty &&
+        failures.length == AppConstants.gtfsRealtimeCategories.length) {
+      throw Exception(
+        'All GTFS realtime feeds failed: ${failures.join('; ')}',
+      );
+    }
+
+    debugPrint(
+      'Combined GTFS-RT vehicles: ${allVehicles.length}',
+    );
+
+    return allVehicles;
+  }
+
+  Future<List<VehiclePosition>> _fetchVehiclePositionsForCategory(
+    String category,
+  ) async {
     final uri = Uri.parse(
-      AppConstants.gtfsRealtimeUrl,
+      '${AppConstants.gtfsRealtimeBaseUrl}?category=$category',
     );
 
     debugPrint(
@@ -19,7 +47,7 @@ class GtfsRealtimeService {
     );
 
     debugPrint(
-      'GTFS-RT request: $uri',
+      'GTFS-RT request [$category]: $uri',
     );
 
     // =========================================================
@@ -29,9 +57,7 @@ class GtfsRealtimeService {
     late http.Response response;
 
     try {
-      response = await http
-          .get(uri)
-          .timeout(const Duration(seconds: 15));
+      response = await http.get(uri).timeout(const Duration(seconds: 15));
     } on TimeoutException {
       throw Exception(
         'GTFS realtime request timed out.',
@@ -44,17 +70,17 @@ class GtfsRealtimeService {
 
     debugPrint(
       'GTFS-RT HTTP status: '
-          '${response.statusCode}',
+      '${response.statusCode}',
     );
 
     debugPrint(
       'GTFS-RT response size: '
-          '${response.bodyBytes.length} bytes',
+      '${response.bodyBytes.length} bytes',
     );
 
     debugPrint(
       'GTFS-RT content-type: '
-          '${response.headers['content-type']}',
+      '${response.headers['content-type']}',
     );
 
     // =========================================================
@@ -64,14 +90,14 @@ class GtfsRealtimeService {
     if (response.statusCode != 200) {
       throw Exception(
         'Failed to fetch realtime feed. '
-            'HTTP ${response.statusCode}',
+        'HTTP ${response.statusCode}',
       );
     }
 
     if (response.bodyBytes.isEmpty) {
       throw Exception(
         'Realtime GTFS feed returned '
-            'an empty response.',
+        'an empty response.',
       );
     }
 
@@ -97,7 +123,7 @@ class GtfsRealtimeService {
 
     debugPrint(
       'Total GTFS entities: '
-          '${feed.entity.length}',
+      '${feed.entity.length}',
     );
 
     // =========================================================
@@ -149,10 +175,7 @@ class GtfsRealtimeService {
       // VALIDATE COORDINATES
       // -------------------------------------------------------
 
-      if (lat < -90 ||
-          lat > 90 ||
-          lng < -180 ||
-          lng > 180) {
+      if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
         invalidCoordinateCount++;
         continue;
       }
@@ -166,9 +189,8 @@ class GtfsRealtimeService {
       // VEHICLE ID
       // =======================================================
 
-      String vehicleId = entity.id.isNotEmpty
-          ? entity.id
-          : 'vehicle-${vehicles.length + 1}';
+      String vehicleId =
+          entity.id.isNotEmpty ? entity.id : 'vehicle-${vehicles.length + 1}';
 
       /*
        * Prefer the actual vehicle ID supplied by the
@@ -177,8 +199,7 @@ class GtfsRealtimeService {
        * If it is unavailable, the entity ID above is used.
        */
       if (vehicle.hasVehicle()) {
-        if (vehicle.vehicle.hasId() &&
-            vehicle.vehicle.id.isNotEmpty) {
+        if (vehicle.vehicle.hasId() && vehicle.vehicle.id.isNotEmpty) {
           vehicleId = vehicle.vehicle.id;
         }
       }
@@ -190,8 +211,7 @@ class GtfsRealtimeService {
       String? routeId;
 
       if (vehicle.hasTrip()) {
-        if (vehicle.trip.hasRouteId() &&
-            vehicle.trip.routeId.isNotEmpty) {
+        if (vehicle.trip.hasRouteId() && vehicle.trip.routeId.isNotEmpty) {
           routeId = vehicle.trip.routeId;
         }
       }
@@ -203,8 +223,7 @@ class GtfsRealtimeService {
       String? tripId;
 
       if (vehicle.hasTrip()) {
-        if (vehicle.trip.hasTripId() &&
-            vehicle.trip.tripId.isNotEmpty) {
+        if (vehicle.trip.hasTripId() && vehicle.trip.tripId.isNotEmpty) {
           tripId = vehicle.trip.tripId;
         }
       }
@@ -242,27 +261,27 @@ class GtfsRealtimeService {
 
     debugPrint(
       'Vehicle entities: '
-          '$vehicleEntityCount',
+      '$vehicleEntityCount',
     );
 
     debugPrint(
       'Entities without vehicle: '
-          '$noVehicleCount',
+      '$noVehicleCount',
     );
 
     debugPrint(
       'Vehicles without position: '
-          '$noPositionCount',
+      '$noPositionCount',
     );
 
     debugPrint(
       'Invalid coordinates: '
-          '$invalidCoordinateCount',
+      '$invalidCoordinateCount',
     );
 
     debugPrint(
       'GTFS-RT parsed vehicles: '
-          '${vehicles.length}',
+      '${vehicles.length}',
     );
 
     // =========================================================
@@ -278,32 +297,32 @@ class GtfsRealtimeService {
 
       debugPrint(
         'Vehicle ID: '
-            '${first.vehicleId}',
+        '${first.vehicleId}',
       );
 
       debugPrint(
         'Route ID: '
-            '${first.routeId}',
+        '${first.routeId}',
       );
 
       debugPrint(
         'Trip ID: '
-            '${first.tripId}',
+        '${first.tripId}',
       );
 
       debugPrint(
         'Latitude: '
-            '${first.lat}',
+        '${first.lat}',
       );
 
       debugPrint(
         'Longitude: '
-            '${first.lng}',
+        '${first.lng}',
       );
 
       debugPrint(
         'Bearing: '
-            '${first.bearing}',
+        '${first.bearing}',
       );
     }
 
@@ -314,9 +333,9 @@ class GtfsRealtimeService {
     for (final bus in vehicles.take(5)) {
       debugPrint(
         'Bus ${bus.vehicleId} | '
-            'Route=${bus.routeId} | '
-            'Trip=${bus.tripId} | '
-            '${bus.lat}, ${bus.lng}',
+        'Route=${bus.routeId} | '
+        'Trip=${bus.tripId} | '
+        '${bus.lat}, ${bus.lng}',
       );
     }
 

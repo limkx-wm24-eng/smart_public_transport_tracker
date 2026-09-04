@@ -14,6 +14,14 @@ class AppConstants {
   // MRT feeder is the active Prasarana feed used by the live tracker.
   static const String gtfsCategory = 'rapid-bus-mrtfeeder';
 
+  // Realtime buses around Klang Valley can be split across Prasarana feeds.
+  // Keep GTFS static on rapid-bus-kl for the existing stops/routes cache, but
+  // combine live vehicle positions from both bus feeds on the Live Tracker.
+  static const List<String> gtfsRealtimeCategories = [
+    'rapid-bus-kl',
+    'rapid-bus-mrtfeeder',
+  ];
+
   static const String gtfsStaticBaseUrl =
       'https://api.data.gov.my/gtfs-static/prasarana';
 
