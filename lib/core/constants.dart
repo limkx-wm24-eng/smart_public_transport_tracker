@@ -10,9 +10,12 @@ class AppConstants {
   //   rapid-bus-kl, rapid-rail-kl, rapid-bus-penang, rapid-bus-kuantan,
   //   rapid-bus-mrtfeeder
   // ---------------------------------------------------------------------
-  // The Rapid KL city-bus live feed is currently not publishing vehicles.
-  // MRT feeder is the active Prasarana feed used by the live tracker.
-  static const String gtfsCategory = 'rapid-bus-mrtfeeder';
+  // Keep Rapid KL city-bus routes and stops available for route 250, etc.
+  static const String gtfsCategory = 'rapid-bus-kl';
+
+  // The city-bus realtime feed is currently empty. Use the available MRT
+  // feeder vehicle feed for live map markers without replacing the catalogue.
+  static const String gtfsRealtimeCategory = 'rapid-bus-mrtfeeder';
 
   // Realtime buses around Klang Valley can be split across Prasarana feeds.
   // Keep GTFS static on rapid-bus-kl for the existing stops/routes cache, but
@@ -32,7 +35,7 @@ class AppConstants {
       '$gtfsStaticBaseUrl?category=$gtfsCategory';
 
   static String get gtfsRealtimeUrl =>
-      '$gtfsRealtimeBaseUrl?category=$gtfsCategory';
+      '$gtfsRealtimeBaseUrl?category=$gtfsRealtimeCategory';
 
   // How often to poll the realtime feed for new vehicle positions.
   // data.gov.my exposes GTFS-Realtime as an HTTP feed, not a push listener.

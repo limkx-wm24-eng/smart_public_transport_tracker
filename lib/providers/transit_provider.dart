@@ -396,13 +396,43 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
       return [];
     }
 
-    final q = query.trim().toLowerCase();
-
-    return _stops
+    final q = _normaliseStopSearchText(query);
+    final matches = _stops
         .where(
-          (stop) => stop.name.toLowerCase().contains(q),
+          (stop) => _normaliseStopSearchText(stop.name).contains(q),
         )
         .toList();
+
+    if (matches.isNotEmpty) return matches;
+
+    // While typing a new short word (for example, "utar m" or "utar mai"),
+    // do not hide all results just because its prefix is not in the GTFS stop
+    // name yet. Show matches for the completed part until that word narrows
+    // the result list.
+    final words = query.trim().split(RegExp(r'\s+'));
+    if (words.length > 1 && words.last.length <= 3) {
+      final completedQuery = _normaliseStopSearchText(
+        words.sublist(0, words.length - 1).join(' '),
+      );
+      return _stops
+          .where(
+            (stop) => _normaliseStopSearchText(stop.name)
+                .contains(completedQuery),
+          )
+          .toList();
+    }
+
+    return matches;
+  }
+
+  /// Makes stop lookup forgiving of spacing and common Malay/English names.
+  /// For example, both "UTAR main gate" and "utarmaingate" match the GTFS
+  /// stop name "UTAR PINTU 4".
+  String _normaliseStopSearchText(String value) {
+    var normalised = value.toLowerCase().trim();
+    normalised = normalised.replaceAll('pintu', 'gate');
+    normalised = normalised.replaceAll('main', '');
+    return normalised.replaceAll(RegExp(r'[^a-z0-9]'), '');
   }
 
   // ============================================================

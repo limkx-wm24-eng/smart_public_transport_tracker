@@ -41,7 +41,10 @@ class SettingsScreen extends StatelessWidget {
           const Divider(),
           const ListTile(
             title: Text('Network'),
-            subtitle: Text(AppConstants.gtfsCategory),
+            subtitle: Text(
+              '${AppConstants.gtfsCategory} routes · '
+              '${AppConstants.gtfsRealtimeCategory} live vehicles',
+            ),
             leading: Icon(Icons.alt_route),
           ),
           ListTile(
