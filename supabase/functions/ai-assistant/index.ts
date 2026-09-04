@@ -40,7 +40,7 @@ Deno.serve(async (request) => {
           { role: 'user', content: userPrompt },
         ],
         temperature: 0.1,
-        max_tokens: 512,can 
+        max_tokens: 512,can
       }),
     });
 

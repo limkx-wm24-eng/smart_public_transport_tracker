@@ -4,14 +4,14 @@ import 'package:gtfs_realtime_bindings/gtfs_realtime_bindings.dart'
     as gtfsrt;
 import 'package:http/http.dart' as http;
 
-/// Checks whether Malaysia's official API is currently publishing Rapid KL
-/// bus vehicle positions.
-///
-/// Run from the project root:
-///   dart run tool/check_rapid_kl_realtime.dart [category]
-///
-/// Example:
-///   dart run tool/check_rapid_kl_realtime.dart rapid-bus-mrtfeeder
+
+
+
+
+
+
+
+
 Future<void> main(List<String> arguments) async {
   const supportedCategories = {
     'rapid-bus-kl',
@@ -34,8 +34,8 @@ Future<void> main(List<String> arguments) async {
   print('Checking $category live bus feed...');
   print(endpoint);
 
-  // Keep this request identical to the app's GTFS-Realtime request. The
-  // provider rejects a custom protobuf Accept header with HTTP 406.
+
+
   final response = await http
       .get(Uri.parse(endpoint))
       .timeout(const Duration(seconds: 20));

@@ -6,27 +6,27 @@ import '../models/favourite_stop.dart';
 import '../models/route_model.dart';
 import '../models/stop.dart';
 
-/// Local (on-device) storage via SQLite.
-///
-/// This app uses SQLite (here) AND Supabase (see
-/// SupabaseFavouritesService) together, each for a different job:
-///
-///  - SQLite  : fast offline cache. Stops/routes downloaded from GTFS-
-///              Static live here so the app works without a constant
-///              connection, and favourites are mirrored here too so they
-///              show up instantly and still work offline.
-///  - Supabase: the source of truth for favourites. When online, this app
-///              reads/writes favourites to a real Postgres database in the
-///              cloud, so they'd survive a reinstall or (with a proper
-///              login system added later) sync across devices.
-///
-/// See FavouritesProvider for how the two are reconciled.
-///
-/// Tables:
-///  - `stops`            : cached GTFS-Static stops
-///  - `routes`           : cached GTFS-Static routes
-///  - `favourites_cache` : local mirror of the user's favourite stops
-///  - `meta`             : small key-value bucket (e.g. last sync time)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 class DatabaseService {
   DatabaseService._internal();
   static final DatabaseService instance = DatabaseService._internal();
@@ -89,9 +89,9 @@ class DatabaseService {
     );
   }
 
-  // ------------------------------------------------------------------
-  // Stops cache (populated from GTFS-Static)
-  // ------------------------------------------------------------------
+
+
+
 
   Future<void> replaceStops(
     List<Stop> stops, {
@@ -129,9 +129,9 @@ class DatabaseService {
         AppConstants.staticDataMaxAge;
   }
 
-  // ------------------------------------------------------------------
-  // Routes cache (populated from GTFS-Static)
-  // ------------------------------------------------------------------
+
+
+
 
   Future<void> replaceRoutes(List<TransitRoute> routes) async {
     final db = await database;
@@ -150,10 +150,10 @@ class DatabaseService {
     return rows.map(TransitRoute.fromMap).toList();
   }
 
-  // ------------------------------------------------------------------
-  // Local favourites cache — mirrors Supabase for instant + offline access.
-  // Supabase remains the source of truth; see FavouritesProvider.
-  // ------------------------------------------------------------------
+
+
+
+
 
   Future<void> cacheFavourites(List<FavouriteStop> favs) async {
     final db = await database;
@@ -184,9 +184,9 @@ class DatabaseService {
     return rows.map(FavouriteStop.fromMap).toList();
   }
 
-  // ------------------------------------------------------------------
-  // Small key-value helper table
-  // ------------------------------------------------------------------
+
+
+
 
   Future<void> _setMeta(String key, String value) async {
     final db = await database;

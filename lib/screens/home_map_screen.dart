@@ -9,8 +9,8 @@ import '../providers/transit_provider.dart';
 import '../services/location_service.dart';
 import 'stop_detail_screen.dart';
 
-/// Member A's screen — live bus locations on a map.
-/// Uses OpenStreetMap tiles via flutter_map.
+
+
 class HomeMapScreen extends StatefulWidget {
   const HomeMapScreen({super.key});
 
@@ -50,9 +50,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     return stops.take(3).toList();
   }
 
-  // =========================================================
-  // SHOW ALL LIVE BUSES
-  // =========================================================
+
+
+
   void _showAllBuses(TransitProvider transit) {
     if (transit.vehicles.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -75,7 +75,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         )
         .toList();
 
-    // If there is only one bus, simply zoom to it.
+
     if (points.length == 1) {
       _mapController.move(
         points.first,
@@ -85,7 +85,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       return;
     }
 
-    // Fit all bus positions inside the visible map.
+
     _mapController.fitCamera(
       CameraFit.bounds(
         bounds: LatLngBounds.fromPoints(points),
@@ -94,9 +94,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     );
   }
 
-  // =========================================================
-  // GET USER CURRENT LOCATION
-  // =========================================================
+
+
+
   Future<void> _locateMe() async {
     if (_isLocatingMe) return;
 
@@ -156,9 +156,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     }
   }
 
-  // =========================================================
-  // REFRESH LIVE BUS DATA
-  // =========================================================
+
+
+
   Future<void> _refreshBuses(
     TransitProvider transit,
   ) async {
@@ -181,7 +181,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         ),
       );
 
-      // Automatically show the buses after refreshing.
+
       _showAllBuses(transit);
     } catch (e) {
       if (!mounted) return;
@@ -209,15 +209,15 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // =======================================================
-      // APP BAR
-      // =======================================================
+
+
+
       appBar: AppBar(
         title: const Text(
           'Live Tracker',
         ),
         actions: [
-          // SHOW ALL BUSES BUTTON
+
           Consumer<TransitProvider>(
             builder: (
               context,
@@ -236,7 +236,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             },
           ),
 
-          // REFRESH BUTTON
+
           Consumer<TransitProvider>(
             builder: (
               context,
@@ -257,7 +257,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             },
           ),
 
-          // MY LOCATION BUTTON
+
           IconButton(
             tooltip: 'Centre on my location',
             onPressed: _isLocatingMe ? null : _locateMe,
@@ -276,9 +276,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         ],
       ),
 
-      // =======================================================
-      // BODY
-      // =======================================================
+
+
+
       body: Consumer<TransitProvider>(
         builder: (
           context,
@@ -287,9 +287,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         ) {
           return Stack(
             children: [
-              // =================================================
-              // MAP
-              // =================================================
+
+
+
               FlutterMap(
                 mapController: _mapController,
                 options: const MapOptions(
@@ -300,9 +300,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                   initialZoom: AppConstants.defaultZoom,
                 ),
                 children: [
-                  // =============================================
-                  // OPEN STREET MAP
-                  // =============================================
+
+
+
                   TileLayer(
                     urlTemplate:
                         'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -310,14 +310,14 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                         'com.example.smart_public_transport_tracker',
                   ),
 
-                  // =============================================
-                  // MARKERS
-                  // =============================================
+
+
+
                   MarkerLayer(
                     markers: [
-                      // -----------------------------------------
-                      // USER LOCATION MARKER
-                      // -----------------------------------------
+
+
+
                       if (_myLocation != null)
                         Marker(
                           point: _myLocation!,
@@ -330,9 +330,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                           ),
                         ),
 
-                      // -----------------------------------------
-                      // BUS STOP MARKERS
-                      // -----------------------------------------
+
+
+
                       ...transit.stops.take(300).map(
                             (stop) => Marker(
                               point: LatLng(
@@ -360,9 +360,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                             ),
                           ),
 
-                      // -----------------------------------------
-                      // LIVE BUS MARKERS
-                      // -----------------------------------------
+
+
+
                       ...transit.vehicles.map(
                         (vehicle) => Marker(
                           point: LatLng(
@@ -387,18 +387,18 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                 ],
               ),
 
-              // =================================================
-              // LOADING INDICATOR
-              // =================================================
+
+
+
               if (transit.vehiclesStatus == LoadStatus.loading &&
                   transit.vehicles.isEmpty)
                 const Center(
                   child: CircularProgressIndicator(),
                 ),
 
-              // =================================================
-              // ERROR MESSAGE
-              // =================================================
+
+
+
               if (transit.errorMessage != null && transit.vehicles.isNotEmpty)
                 Positioned(
                   left: 12,
@@ -466,9 +466,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                   ),
                 ),
 
-              // =================================================
-              // NUMBER OF LIVE BUSES
-              // =================================================
+
+
+
               Positioned(
                 top: 12,
                 left: 12,
@@ -487,9 +487,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                 ),
               ),
 
-              // =================================================
-              // REFRESH LOADING ICON
-              // =================================================
+
+
+
               if (transit.vehiclesStatus == LoadStatus.loading &&
                   transit.vehicles.isNotEmpty)
                 const Positioned(

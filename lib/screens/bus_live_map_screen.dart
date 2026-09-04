@@ -34,13 +34,13 @@ class _BusLiveMapScreenState
 
   String? _routeError;
 
-  // Prevent fitting the camera again every time
-  // TransitProvider refreshes.
+
+
   bool _hasFittedRoute = false;
 
-  // ============================================================
-  // INIT
-  // ============================================================
+
+
+
 
   @override
   void initState() {
@@ -53,9 +53,9 @@ class _BusLiveMapScreenState
     );
   }
 
-  // ============================================================
-  // LOAD ACTUAL GTFS ROUTE
-  // ============================================================
+
+
+
 
   Future<void> _loadActualRoute() async {
     if (!mounted) {
@@ -70,7 +70,7 @@ class _BusLiveMapScreenState
     final transit =
     context.read<TransitProvider>();
 
-    // Get latest version of this bus.
+
     final latestBus =
         transit.findVehicleById(
           widget.vehicle.vehicleId,
@@ -97,17 +97,17 @@ class _BusLiveMapScreenState
       'Trip ID: ${latestBus.tripId}',
     );
 
-    // Trip ID is required for:
-    //
-    // trip_id
-    //   ↓
-    // trips.txt
-    //   ↓
-    // shape_id
-    //   ↓
-    // shapes.txt
-    //   ↓
-    // actual road route
+
+
+
+
+
+
+
+
+
+
+
 
     if (latestBus.tripId == null ||
         latestBus.tripId!.isEmpty) {
@@ -164,7 +164,7 @@ class _BusLiveMapScreenState
             '${points.length} route points.',
       );
 
-      // Automatically show the entire route.
+
       if (points.isNotEmpty) {
         WidgetsBinding.instance
             .addPostFrameCallback(
@@ -197,9 +197,9 @@ class _BusLiveMapScreenState
     }
   }
 
-  // ============================================================
-  // FIT ROUTE TO SCREEN
-  // ============================================================
+
+
+
 
   void _fitRouteToScreen() {
     if (!mounted ||
@@ -213,7 +213,7 @@ class _BusLiveMapScreenState
         _routePoints,
       );
 
-      // Also include selected stop.
+
       points.add(
         LatLng(
           widget.stop.lat,
@@ -245,9 +245,9 @@ class _BusLiveMapScreenState
     }
   }
 
-  // ============================================================
-  // CENTRE MAP ON BUS
-  // ============================================================
+
+
+
 
   void _centreOnBus(
       VehiclePosition bus,
@@ -261,9 +261,9 @@ class _BusLiveMapScreenState
     );
   }
 
-  // ============================================================
-  // REFRESH
-  // ============================================================
+
+
+
 
   Future<void> _refreshBus() async {
     final transit =
@@ -285,16 +285,16 @@ class _BusLiveMapScreenState
         updatedBus,
       );
 
-      // Reload route if necessary.
+
       if (_routePoints.isEmpty) {
         await _loadActualRoute();
       }
     }
   }
 
-  // ============================================================
-  // BUILD
-  // ============================================================
+
+
+
 
   @override
   Widget build(
@@ -326,9 +326,9 @@ class _BusLiveMapScreenState
         ),
 
         actions: [
-          // ====================================================
-          // SHOW WHOLE ROUTE
-          // ====================================================
+
+
+
 
           IconButton(
             tooltip: 'Show whole route',
@@ -341,9 +341,9 @@ class _BusLiveMapScreenState
                 : _fitRouteToScreen,
           ),
 
-          // ====================================================
-          // REFRESH BUS
-          // ====================================================
+
+
+
 
           IconButton(
             tooltip:
@@ -363,9 +363,9 @@ class _BusLiveMapScreenState
             transit,
             _,
             ) {
-          // ====================================================
-          // GET LATEST BUS LOCATION
-          // ====================================================
+
+
+
 
           final latestBus =
               transit.findVehicleById(
@@ -385,9 +385,9 @@ class _BusLiveMapScreenState
             widget.stop.lng,
           );
 
-          // ====================================================
-          // DISTANCE
-          // ====================================================
+
+
+
 
           final distanceMeters =
           transit.distanceToVehicle(
@@ -405,9 +405,9 @@ class _BusLiveMapScreenState
             '${(distanceMeters / 1000).toStringAsFixed(2)} km';
           }
 
-          // ====================================================
-          // MAP
-          // ====================================================
+
+
+
 
           return Stack(
             children: [
@@ -423,9 +423,9 @@ class _BusLiveMapScreenState
                 ),
 
                 children: [
-                  // =================================================
-                  // OPENSTREETMAP
-                  // =================================================
+
+
+
 
                   TileLayer(
                     urlTemplate:
@@ -435,9 +435,9 @@ class _BusLiveMapScreenState
                     'com.example.smart_public_transport_tracker',
                   ),
 
-                  // =================================================
-                  // ACTUAL GTFS ROUTE
-                  // =================================================
+
+
+
 
                   if (_routePoints.isNotEmpty)
                     PolylineLayer(
@@ -454,15 +454,15 @@ class _BusLiveMapScreenState
                       ],
                     ),
 
-                  // =================================================
-                  // MARKERS
-                  // =================================================
+
+
+
 
                   MarkerLayer(
                     markers: [
-                      // ---------------------------------------------
-                      // SELECTED STOP
-                      // ---------------------------------------------
+
+
+
 
                       Marker(
                         point:
@@ -480,9 +480,9 @@ class _BusLiveMapScreenState
                         ),
                       ),
 
-                      // ---------------------------------------------
-                      // LIVE BUS
-                      // ---------------------------------------------
+
+
+
 
                       Marker(
                         point:
@@ -518,9 +518,9 @@ class _BusLiveMapScreenState
                 ],
               ),
 
-              // =================================================
-              // LIVE STATUS
-              // =================================================
+
+
+
 
               Positioned(
                 top: 12,
@@ -542,9 +542,9 @@ class _BusLiveMapScreenState
                 ),
               ),
 
-              // =================================================
-              // ROUTE LOADING
-              // =================================================
+
+
+
 
               if (_isLoadingRoute)
                 Positioned(
@@ -587,9 +587,9 @@ class _BusLiveMapScreenState
                   ),
                 ),
 
-              // =================================================
-              // ROUTE ERROR
-              // =================================================
+
+
+
 
               if (!_isLoadingRoute &&
                   _routeError != null)
@@ -625,9 +625,9 @@ class _BusLiveMapScreenState
                   ),
                 ),
 
-              // =================================================
-              // BUS INFORMATION CARD
-              // =================================================
+
+
+
 
               Positioned(
                 left: 12,
@@ -652,9 +652,9 @@ class _BusLiveMapScreenState
                       MainAxisSize.min,
 
                       children: [
-                        // -----------------------------------------
-                        // ROUTE
-                        // -----------------------------------------
+
+
+
 
                         Row(
                           children: [
@@ -696,7 +696,7 @@ class _BusLiveMapScreenState
                           height: 10,
                         ),
 
-                        // Estimated arrival time — prominent box, matches wireframe
+
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
@@ -718,9 +718,9 @@ class _BusLiveMapScreenState
                         ),
                         const SizedBox(height: 10),
 
-                        // -----------------------------------------
-                        // BUS ID
-                        // -----------------------------------------
+
+
+
 
                         Text(
                           'Bus ID: '
@@ -731,9 +731,9 @@ class _BusLiveMapScreenState
                           height: 4,
                         ),
 
-                        // -----------------------------------------
-                        // SELECTED STOP
-                        // -----------------------------------------
+
+
+
 
                         Text(
                           'Selected stop: '
@@ -744,9 +744,9 @@ class _BusLiveMapScreenState
                           height: 4,
                         ),
 
-                        // -----------------------------------------
-                        // DISTANCE
-                        // -----------------------------------------
+
+
+
 
                         Text(
                           'Distance to stop: '
@@ -757,9 +757,9 @@ class _BusLiveMapScreenState
                           height: 4,
                         ),
 
-                        // -----------------------------------------
-                        // TRIP ID
-                        // -----------------------------------------
+
+
+
 
                         if (latestBus.tripId !=
                             null &&
@@ -775,9 +775,9 @@ class _BusLiveMapScreenState
                           height: 12,
                         ),
 
-                        // -----------------------------------------
-                        // LIVE STATUS
-                        // -----------------------------------------
+
+
+
 
                         const Row(
                           children: [
@@ -810,9 +810,9 @@ class _BusLiveMapScreenState
                           height: 8,
                         ),
 
-                        // -----------------------------------------
-                        // ROUTE STATUS
-                        // -----------------------------------------
+
+
+
 
                         if (_isLoadingRoute)
                           const Text(
@@ -855,9 +855,9 @@ class _BusLiveMapScreenState
                 ),
               ),
 
-              // =================================================
-              // CENTRE ON BUS BUTTON
-              // =================================================
+
+
+
 
               Positioned(
                 right: 16,

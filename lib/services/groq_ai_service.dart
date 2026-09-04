@@ -1,7 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Single client for the Groq Edge Function. No Groq credential is ever
-/// included in the mobile application.
+
+
 class GroqAiService {
   GroqAiService({SupabaseClient? client})
       : _client = client ?? Supabase.instance.client;
@@ -19,10 +19,10 @@ class GroqAiService {
         transportContext: transportContext,
       );
 
-  /// Asks the assistant to explain an already-computed ETA in plain
-  /// language (stop, route, minutes, stops remaining). The edge function's
-  /// system prompt restricts it to the ETA figures supplied in
-  /// [transportContext] — it never invents its own arrival time.
+
+
+
+
   Future<String> getEtaExplanation({
     required String question,
     required Map<String, dynamic> transportContext,

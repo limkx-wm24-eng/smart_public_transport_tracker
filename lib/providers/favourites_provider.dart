@@ -6,8 +6,8 @@ import '../models/stop.dart';
 import '../services/database_service.dart';
 import '../services/supabase_favourites_service.dart';
 
-/// Manages a signed-in user's saved stops with an offline SQLite cache and
-/// Supabase synchronisation.
+
+
 class FavouritesProvider extends ChangeNotifier {
   final DatabaseService _localDb = DatabaseService.instance;
   final SupabaseFavouritesService _remote = SupabaseFavouritesService();
@@ -52,7 +52,7 @@ class FavouritesProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Compatibility entry point for the earlier provider API.
+
   Future<void> loadFavourites() => load();
 
   Future<void> toggleFavourite(Stop stop) async {
@@ -100,7 +100,7 @@ class FavouritesProvider extends ChangeNotifier {
     }
   }
 
-  /// Clears only in-memory state on sign out.
+
   void clearOnSignOut() {
     _favourites = [];
     _isOffline = false;

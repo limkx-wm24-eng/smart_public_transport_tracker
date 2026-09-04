@@ -11,13 +11,6 @@ import '../services/database_service.dart';
 import '../services/gtfs_realtime_service.dart';
 import '../services/gtfs_static_service.dart';
 
-/// Member A's module — live map + tracking.
-///
-/// Owns:
-/// - cached GTFS stops and routes
-/// - currently-polled live vehicle positions
-/// - nearby bus searching
-/// - actual GTFS route shape loading
 enum LoadStatus {
   initial,
   loading,
@@ -56,10 +49,6 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
   }
 
-  // ============================================================
-  // GETTERS
-  // ============================================================
-
   List<Stop> get stops => _stops;
 
   List<TransitRoute> get routes => _routes;
@@ -70,16 +59,10 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   bool get showingLastKnownVehicles => _showingLastKnownVehicles;
 
-  /// Converts the GTFS-Realtime internal route_id into the passenger-facing
-  /// route_short_name from GTFS Static routes.txt. Realtime matching still
-  /// uses the original ID; this is only for display.
   String displayRouteLabel(String? routeId) {
     return mappedPassengerRouteLabel(routeId) ?? routeId ?? 'Unknown';
   }
 
-  /// Resolves either a GTFS route_id or a public short code. The rail feed is
-  /// loaded separately because Google transit suggestions can combine buses
-  /// with LRT/MRT lines even when this app's live feed is bus-only.
   String? mappedPassengerRouteLabel(String? routeCode) {
     if (routeCode == null || routeCode.isEmpty) return null;
     for (final route in [..._routes, ..._railRoutes]) {
@@ -96,19 +79,11 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   String? get errorMessage => _errorMessage;
 
-  // ============================================================
-  // INITIALISE
-  // ============================================================
-
   Future<void> initialise() async {
     debugPrint(
       'TransitProvider initialise started',
     );
 
-    // Stops/routes and live vehicle positions are independent of each
-    // other, so there's no reason to wait for one before starting the
-    // other — running them in parallel roughly halves the time spent on
-    // the splash screen compared to doing them one after another.
     await Future.wait([
       loadStopsAndRoutes(),
       loadRailRouteLabels(),
@@ -130,10 +105,6 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
     );
   }
 
-  // ============================================================
-  // LOAD GTFS STATIC STOPS + ROUTES
-  // ============================================================
-
   Future<void> loadStopsAndRoutes({
     bool forceRefresh = false,
   }) async {
@@ -142,10 +113,6 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
 
     try {
-      // Show whatever's already cached locally right away, so the UI
-      // isn't blocked on a network round-trip just to display stops the
-      // device already has. If the cache turns out to be stale, we
-      // refresh it below — the user sees data instantly either way.
       if (!forceRefresh) {
         final cachedStops = await _db.getAllStops();
 
@@ -243,10 +210,6 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  // ============================================================
-  // REFRESH LIVE BUS POSITIONS
-  // ============================================================
-
   Future<void> refreshVehicles() async {
     final lastRefresh = _lastVehicleRefresh;
     if (lastRefresh != null &&
@@ -342,10 +305,6 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  // ============================================================
-  // AUTO REFRESH LIVE BUSES
-  // ============================================================
-
   void startPolling() {
     _pollTimer?.cancel();
 
@@ -385,10 +344,6 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  // ============================================================
-  // STOP SEARCH
-  // ============================================================
-
   List<Stop> searchStopsLocally(
     String query,
   ) {
@@ -405,10 +360,6 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
 
     if (matches.isNotEmpty) return matches;
 
-    // While typing a new short word (for example, "utar m" or "utar mai"),
-    // do not hide all results just because its prefix is not in the GTFS stop
-    // name yet. Show matches for the completed part until that word narrows
-    // the result list.
     final words = query.trim().split(RegExp(r'\s+'));
     if (words.length > 1 && words.last.length <= 3) {
       final completedQuery = _normaliseStopSearchText(
@@ -425,19 +376,12 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
     return matches;
   }
 
-  /// Makes stop lookup forgiving of spacing and common Malay/English names.
-  /// For example, both "UTAR main gate" and "utarmaingate" match the GTFS
-  /// stop name "UTAR PINTU 4".
   String _normaliseStopSearchText(String value) {
     var normalised = value.toLowerCase().trim();
     normalised = normalised.replaceAll('pintu', 'gate');
     normalised = normalised.replaceAll('main', '');
     return normalised.replaceAll(RegExp(r'[^a-z0-9]'), '');
   }
-
-  // ============================================================
-  // FIND LIVE BUSES NEAR A STOP
-  // ============================================================
 
   List<VehiclePosition> vehiclesNearStop(
     Stop stop, {
@@ -502,10 +446,6 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
     return nearbyVehicles;
   }
 
-  // ============================================================
-  // CALCULATE DISTANCE BETWEEN STOP AND BUS
-  // ============================================================
-
   double distanceToVehicle(
     Stop stop,
     VehiclePosition vehicle,
@@ -525,10 +465,6 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
     );
   }
 
-  // ============================================================
-  // FIND LATEST VERSION OF A BUS
-  // ============================================================
-
   VehiclePosition? findVehicleById(
     String vehicleId,
   ) {
@@ -541,16 +477,11 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
     return null;
   }
 
-  // ============================================================
-  // GET ACTUAL GTFS ROUTE SHAPE FOR A LIVE BUS
-  // ============================================================
-
   Future<List<LatLng>> getRouteShapeForVehicle(
     VehiclePosition vehicle,
   ) async {
     final tripId = vehicle.tripId;
 
-    // We need tripId to determine the correct GTFS shape.
     if (tripId == null || tripId.isEmpty) {
       debugPrint(
         'Cannot load route shape: '
@@ -582,11 +513,6 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
         'Trip ID: $tripId',
       );
 
-      // --------------------------------------------------------
-      // STEP 1:
-      // trip_id -> shape_id
-      // --------------------------------------------------------
-
       final shapeId = await _staticService.findShapeIdForTrip(
         tripId,
       );
@@ -604,11 +530,6 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
         'Shape ID: $shapeId',
       );
 
-      // --------------------------------------------------------
-      // STEP 2:
-      // shape_id -> route coordinates
-      // --------------------------------------------------------
-
       final shapePoints = await _staticService.fetchShapeForId(
         shapeId,
       );
@@ -621,11 +542,6 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
 
         return [];
       }
-
-      // --------------------------------------------------------
-      // STEP 3:
-      // Convert ShapePoint -> LatLng
-      // --------------------------------------------------------
 
       final routePoints = shapePoints.map(
         (point) {
@@ -665,16 +581,12 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  /// GTFS-static route IDs serving a stop, used by the journey assistant.
   Future<Set<String>> routeIdsForStop(Stop stop) =>
       _staticService.findRouteIdsForStop(stop.stopId);
 
-  /// GTFS-static stop IDs served by a route, used by planner fallback search.
   Future<List<String>> stopIdsForRoute(String routeId) =>
       _staticService.findStopIdsForRoute(routeId);
 
-  /// Loads one GTFS route shape that serves [stop]. This provides a route
-  /// preview even when no live vehicle is currently within the nearby range.
   Future<List<LatLng>> getRouteShapeForStop(Stop stop) async {
     try {
       final tripId = await _staticService.findTripIdForStop(stop.stopId);
@@ -694,10 +606,6 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
       return [];
     }
   }
-
-  // ============================================================
-  // CLEAN UP TIMER
-  // ============================================================
 
   @override
   void dispose() {

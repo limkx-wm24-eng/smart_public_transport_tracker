@@ -1,16 +1,16 @@
-// Supabase Edge Function: reset-password-with-pin
-//
-// Lets a logged-out user reset their password using the security PIN they
-// set at sign-up, instead of an emailed link. This function is the ONLY
-// place that holds the service-role key needed to change another user's
-// password — that key must never be embedded in the Flutter app, since
-// anyone could extract it from the app binary and reset any account.
-//
-// Deploy with:
-//   supabase functions deploy reset-password-with-pin
-//
-// SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are injected automatically by
-// Supabase into every deployed Edge Function — no manual secret needed.
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -26,9 +26,9 @@ function jsonResponse(body: unknown, status: number): Response {
   });
 }
 
-// Same SHA-256 hex digest algorithm used client-side in
-// lib/providers/auth_provider.dart's hashPin() — must stay identical on
-// both sides for the comparison below to ever match.
+
+
+
 async function sha256Hex(input: string): Promise<string> {
   const data = new TextEncoder().encode(input);
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
@@ -66,8 +66,8 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  // Same generic error for "no such account" and "wrong PIN" — this
-  // endpoint must never let someone probe which emails have accounts.
+
+
   const genericError = () => jsonResponse({ error: "Incorrect email or PIN." }, 401);
 
   const supabaseAdmin = createClient(

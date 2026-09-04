@@ -50,9 +50,9 @@ class GtfsRealtimeService {
       'GTFS-RT request [$category]: $uri',
     );
 
-    // =========================================================
-    // DOWNLOAD GTFS REALTIME DATA
-    // =========================================================
+
+
+
 
     late http.Response response;
 
@@ -83,9 +83,9 @@ class GtfsRealtimeService {
       '${response.headers['content-type']}',
     );
 
-    // =========================================================
-    // CHECK HTTP RESPONSE
-    // =========================================================
+
+
+
 
     if (response.statusCode != 200) {
       throw Exception(
@@ -101,9 +101,9 @@ class GtfsRealtimeService {
       );
     }
 
-    // =========================================================
-    // DECODE PROTOBUF
-    // =========================================================
+
+
+
 
     late gtfsrt.FeedMessage feed;
 
@@ -126,9 +126,9 @@ class GtfsRealtimeService {
       '${feed.entity.length}',
     );
 
-    // =========================================================
-    // DEBUG COUNTERS
-    // =========================================================
+
+
+
 
     int vehicleEntityCount = 0;
     int noVehicleCount = 0;
@@ -139,14 +139,14 @@ class GtfsRealtimeService {
 
     final vehicles = <VehiclePosition>[];
 
-    // =========================================================
-    // PARSE LIVE VEHICLES
-    // =========================================================
+
+
+
 
     for (final entity in feed.entity) {
-      // -------------------------------------------------------
-      // CHECK VEHICLE DATA
-      // -------------------------------------------------------
+
+
+
 
       if (!entity.hasVehicle()) {
         noVehicleCount++;
@@ -157,9 +157,9 @@ class GtfsRealtimeService {
 
       final vehicle = entity.vehicle;
 
-      // -------------------------------------------------------
-      // CHECK GPS POSITION
-      // -------------------------------------------------------
+
+
+
 
       if (!vehicle.hasPosition()) {
         noPositionCount++;
@@ -171,9 +171,9 @@ class GtfsRealtimeService {
       final lat = position.latitude.toDouble();
       final lng = position.longitude.toDouble();
 
-      // -------------------------------------------------------
-      // VALIDATE COORDINATES
-      // -------------------------------------------------------
+
+
+
 
       if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
         invalidCoordinateCount++;
@@ -185,28 +185,28 @@ class GtfsRealtimeService {
         continue;
       }
 
-      // =======================================================
-      // VEHICLE ID
-      // =======================================================
+
+
+
 
       String vehicleId =
           entity.id.isNotEmpty ? entity.id : 'vehicle-${vehicles.length + 1}';
 
-      /*
-       * Prefer the actual vehicle ID supplied by the
-       * GTFS-Realtime VehicleDescriptor.
-       *
-       * If it is unavailable, the entity ID above is used.
-       */
+
+
+
+
+
+
       if (vehicle.hasVehicle()) {
         if (vehicle.vehicle.hasId() && vehicle.vehicle.id.isNotEmpty) {
           vehicleId = vehicle.vehicle.id;
         }
       }
 
-      // =======================================================
-      // ROUTE ID
-      // =======================================================
+
+
+
 
       String? routeId;
 
@@ -216,9 +216,9 @@ class GtfsRealtimeService {
         }
       }
 
-      // =======================================================
-      // TRIP ID
-      // =======================================================
+
+
+
 
       String? tripId;
 
@@ -228,9 +228,9 @@ class GtfsRealtimeService {
         }
       }
 
-      // =======================================================
-      // BEARING
-      // =======================================================
+
+
+
 
       double? bearing;
 
@@ -238,9 +238,9 @@ class GtfsRealtimeService {
         bearing = position.bearing.toDouble();
       }
 
-      // =======================================================
-      // CREATE VEHICLE POSITION
-      // =======================================================
+
+
+
 
       vehicles.add(
         VehiclePosition(
@@ -255,9 +255,9 @@ class GtfsRealtimeService {
       );
     }
 
-    // =========================================================
-    // DEBUG RESULT
-    // =========================================================
+
+
+
 
     debugPrint(
       'Vehicle entities: '
@@ -284,9 +284,9 @@ class GtfsRealtimeService {
       '${vehicles.length}',
     );
 
-    // =========================================================
-    // SHOW SAMPLE BUS
-    // =========================================================
+
+
+
 
     if (vehicles.isNotEmpty) {
       final first = vehicles.first;
@@ -326,9 +326,9 @@ class GtfsRealtimeService {
       );
     }
 
-    // =========================================================
-    // PRINT FIRST 5 BUSES
-    // =========================================================
+
+
+
 
     for (final bus in vehicles.take(5)) {
       debugPrint(

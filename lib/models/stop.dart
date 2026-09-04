@@ -1,4 +1,4 @@
-/// Represents a single row from GTFS Static `stops.txt`.
+
 class Stop {
   final String stopId;
   final String name;
@@ -12,7 +12,7 @@ class Stop {
     required this.lng,
   });
 
-  /// Build from a parsed CSV row (as a Map keyed by header name).
+
   factory Stop.fromCsvRow(Map<String, dynamic> row) {
     return Stop(
       stopId: (row['stop_id'] ?? '').toString(),
@@ -22,7 +22,7 @@ class Stop {
     );
   }
 
-  /// Build from a SQLite row.
+
   factory Stop.fromMap(Map<String, dynamic> map) {
     return Stop(
       stopId: map['stop_id'] as String,

@@ -11,12 +11,12 @@ import '../models/shape_point.dart';
 import '../models/stop.dart';
 import '../models/trip_model.dart';
 
-/// Parses raw CSV text into a list of header-keyed rows.
-///
-/// Top-level (not a method) so it can be handed to [compute] and run on a
-/// background isolate — GTFS files like shapes.txt can have tens of
-/// thousands of rows, and parsing that on the main isolate was blocking
-/// the UI thread and making the app feel like it was hanging on load.
+
+
+
+
+
+
 List<Map<String, dynamic>> _parseCsvContent(String content) {
   final rows = const CsvToListConverter(eol: '\n').convert(content);
 
@@ -48,12 +48,12 @@ class GtfsStaticService {
   final String _staticUrl;
   Archive? _cachedArchive;
 
-  // Parsed trips.txt / shapes.txt are comparatively expensive to re-parse
-  // (shapes.txt in particular can have tens of thousands of rows), and
-  // getRouteShapeForVehicle() calls fetchTrips() + fetchShapeForId() (which
-  // itself calls fetchShapePoints()) every time a user opens a bus's live
-  // map. Cache the parsed results the same way the raw archive is cached,
-  // so repeat lookups just re-filter the same in-memory list.
+
+
+
+
+
+
   List<TransitTrip>? _cachedTrips;
   List<ShapePoint>? _cachedShapePoints;
   final Map<String, String?> _tripIdByStopId = {};
@@ -67,10 +67,10 @@ class GtfsStaticService {
       return _cachedArchive!;
     }
 
-    // The realtime feed already has a timeout (see GtfsRealtimeService) but
-    // this static download didn't — if api.data.gov.my is slow or the
-    // connection is flaky, this would previously hang indefinitely and the
-    // splash screen would just sit there with no way out.
+
+
+
+
     final response = await http
         .get(
           Uri.parse(_staticUrl),
@@ -111,15 +111,15 @@ class GtfsStaticService {
       file.content as List<int>,
     );
 
-    // Offload the actual CSV parse to a background isolate via compute() —
-    // this file can be large (shapes.txt especially) and parsing it in
-    // place was freezing the UI thread during load.
+
+
+
     return compute(_parseCsvContent, content);
   }
 
-  // =========================================================
-  // STOPS
-  // =========================================================
+
+
+
 
   Future<List<Stop>> fetchStops() async {
     final archive = await _getArchive();
@@ -142,9 +142,9 @@ class GtfsStaticService {
     return stops;
   }
 
-  // =========================================================
-  // ROUTES
-  // =========================================================
+
+
+
 
   Future<List<TransitRoute>> fetchRoutes() async {
     final archive = await _getArchive();
@@ -169,9 +169,9 @@ class GtfsStaticService {
     return routes;
   }
 
-  // =========================================================
-  // TRIPS
-  // =========================================================
+
+
+
 
   Future<List<TransitTrip>> fetchTrips() async {
     if (_cachedTrips != null) {
@@ -202,9 +202,9 @@ class GtfsStaticService {
     return trips;
   }
 
-  // =========================================================
-  // SHAPE POINTS
-  // =========================================================
+
+
+
 
   Future<List<ShapePoint>> fetchShapePoints() async {
     if (_cachedShapePoints != null) {
@@ -241,9 +241,9 @@ class GtfsStaticService {
     return points;
   }
 
-  // =========================================================
-  // FIND SHAPE ID FOR TRIP
-  // =========================================================
+
+
+
 
   Future<String?> findShapeIdForTrip(
     String tripId,
@@ -259,8 +259,8 @@ class GtfsStaticService {
     return null;
   }
 
-  /// Finds one scheduled trip serving [stopId]. This is used to show a
-  /// static route shape on a stop page when no live vehicle is nearby.
+
+
   Future<String?> findTripIdForStop(String stopId) async {
     if (_tripIdByStopId.containsKey(stopId)) {
       return _tripIdByStopId[stopId];
@@ -281,8 +281,8 @@ class GtfsStaticService {
     return null;
   }
 
-  /// Returns the GTFS route IDs that serve a stop. The index is built once
-  /// from the local feed and is deliberately kept in the app, never sent to AI.
+
+
   Future<Set<String>> findRouteIdsForStop(String stopId) async {
     if (_routeIdsByStopId == null) {
       final trips = await fetchTrips();
@@ -303,9 +303,9 @@ class GtfsStaticService {
     return _routeIdsByStopId![stopId] ?? <String>{};
   }
 
-  /// Returns stop IDs served by [routeId]. This is useful for planner
-  /// fallback routes where the exact destination stop is not served, but a
-  /// route can still bring the user close enough to walk.
+
+
+
   Future<List<String>> findStopIdsForRoute(String routeId) async {
     if (_stopIdsByRouteId == null) {
       final trips = await fetchTrips();
@@ -347,11 +347,11 @@ class GtfsStaticService {
     return ordered;
   }
 
-  /// Returns the stop_ids served by [tripId], in scheduled order
-  /// (stop_times.txt sorted by stop_sequence). Used by the AI-Estimated
-  /// Arrival Time feature to work out how many stops away a live bus
-  /// currently is from a target stop, instead of only looking at
-  /// straight-line distance.
+
+
+
+
+
   Future<List<String>> getOrderedStopIdsForTrip(String tripId) async {
     if (_orderedStopIdsByTrip == null) {
       _stopSequenceIndexFuture ??= _buildStopSequenceIndex();
@@ -397,9 +397,9 @@ class GtfsStaticService {
     };
   }
 
-  // =========================================================
-  // GET SHAPE POINTS FOR SHAPE ID
-  // =========================================================
+
+
+
 
   Future<List<ShapePoint>> fetchShapeForId(
     String shapeId,
@@ -421,9 +421,9 @@ class GtfsStaticService {
     return routePoints;
   }
 
-  // =========================================================
-  // CLEAR CACHE
-  // =========================================================
+
+
+
 
   void clearCache() {
     _cachedArchive = null;

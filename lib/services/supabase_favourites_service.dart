@@ -2,24 +2,24 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/favourite_stop.dart';
 
-/// Remote favourites storage backed by Supabase (a hosted Postgres
-/// database) — the app's remote data saving method for user data.
-///
-/// Table (see README for the full SQL):
-///   create table favourites (
-///     id uuid primary key default gen_random_uuid(),
-///     user_id uuid not null references auth.users(id) on delete cascade,
-///     stop_id text not null,
-///     name text not null,
-///     lat double precision not null,
-///     lng double precision not null,
-///     saved_at timestamptz not null default now(),
-///     unique (user_id, stop_id)
-///   );
-///
-/// Rows are scoped by the authenticated user's id (auth.uid()), enforced
-/// by real Row Level Security now that the app has a login system — this
-/// replaces the earlier device_id workaround.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 class SupabaseFavouritesService {
   SupabaseClient get _client => Supabase.instance.client;
 

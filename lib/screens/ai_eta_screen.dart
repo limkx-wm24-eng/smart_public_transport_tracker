@@ -101,8 +101,8 @@ class _AiEtaScreenState extends State<AiEtaScreen> {
         setState(() => _destinationResults = places);
       }
     } catch (_) {
-      // Keep the search screen usable when the remote place service is
-      // temporarily unavailable. A full error is shown only after Search.
+
+
     }
   }
 

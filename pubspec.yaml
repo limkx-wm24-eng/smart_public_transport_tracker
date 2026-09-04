@@ -10,40 +10,30 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # UI
   cupertino_icons: ^1.0.6
 
-  # State management (simplest option for beginners)
   provider: ^6.1.2
 
-  # Networking
   http: ^1.2.1
 
-  # Maps (OpenStreetMap - free, no API key/billing needed)
   flutter_map: ^6.1.0
   latlong2: ^0.9.1
 
-  # Location (mobile-unique feature)
   geolocator: ^12.0.0
   permission_handler: ^11.3.1
 
-  # GTFS-Realtime protobuf parsing (no need to compile .proto files yourself)
   gtfs_realtime_bindings: 1.2.0
 
-  # Local storage
   shared_preferences: ^2.2.3
   sqflite: ^2.3.3
   path: ^1.9.0
   path_provider: ^2.1.3
   uuid: ^4.4.0
 
-  # Remote database (cloud sync)
   supabase_flutter: ^2.5.6
 
-  # Hashing the security PIN before it ever leaves the device
   crypto: ^3.0.3
 
-  # Parsing the GTFS-Static ZIP feed (routes.txt, stops.txt, etc.)
   archive: ^3.6.1
   csv: ^6.0.0
 
@@ -54,5 +44,3 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  # assets:
-  #   - assets/

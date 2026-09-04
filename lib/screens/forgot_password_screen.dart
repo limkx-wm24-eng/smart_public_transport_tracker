@@ -3,11 +3,11 @@ import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
 
-/// Resets a password using the security PIN set at sign-up, instead of an
-/// emailed link. This lets password reset work even when no email provider
-/// is configured. See lib/providers/auth_provider.dart and
-/// supabase/functions/reset-password-with-pin/ for how the change is
-/// actually applied server-side.
+
+
+
+
+
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
 

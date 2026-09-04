@@ -12,13 +12,13 @@ import '../providers/favourites_provider.dart';
 import '../providers/transit_provider.dart';
 import 'ai_eta_screen.dart';
 
-/// Shows live buses near a selected stop.
-///
-/// Flow:
-/// Search Stop
-/// -> StopDetailScreen
-/// -> Select a live bus
-/// -> BusLiveMapScreen
+
+
+
+
+
+
+
 class StopDetailScreen extends StatefulWidget {
   final Stop stop;
 
@@ -131,7 +131,7 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
       return [];
     }
 
-    // Keep the route direction clear without covering the map with arrows.
+
     final step = math.max(1, (_routePoints.length / 8).ceil());
     final markers = <Marker>[];
     for (var index = step; index < _routePoints.length; index += step) {
@@ -195,7 +195,7 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
           stop.name,
         ),
         actions: [
-          // Refresh live bus positions
+
           IconButton(
             tooltip: 'Refresh live buses',
             icon: const Icon(
@@ -206,7 +206,7 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
             },
           ),
 
-          // Favourite
+
           IconButton(
             tooltip: 'Favourite stop',
             icon: Icon(
@@ -228,9 +228,9 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16),
           children: [
-            // =================================================
-            // LIVE STOP MAP
-            // =================================================
+
+
+
             SizedBox(
               height: 250,
               child: Stack(
@@ -334,9 +334,9 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
 
             const SizedBox(height: 16),
 
-            // =================================================
-            // STOP INFORMATION
-            // =================================================
+
+
+
 
             Card(
               child: Padding(
@@ -394,9 +394,9 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
               height: 16,
             ),
 
-            // =================================================
-            // INFORMATION MESSAGE
-            // =================================================
+
+
+
 
             Container(
               width: double.infinity,
@@ -431,9 +431,9 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
               height: 20,
             ),
 
-            // =================================================
-            // LIVE BUS TITLE
-            // =================================================
+
+
+
 
             Row(
               children: [
@@ -484,9 +484,9 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
               height: 14,
             ),
 
-            // =================================================
-            // INITIAL LOADING
-            // =================================================
+
+
+
 
             if (transit.vehiclesStatus == LoadStatus.loading &&
                 transit.vehicles.isEmpty)
@@ -497,9 +497,9 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
                 ),
               ),
 
-            // =================================================
-            // NO BUS FOUND
-            // =================================================
+
+
+
 
             if (transit.vehiclesStatus != LoadStatus.loading &&
                 nearbyBuses.isEmpty)
@@ -552,9 +552,9 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
                 ),
               ),
 
-            // =================================================
-            // LIVE BUS LIST
-            // =================================================
+
+
+
 
             ...nearbyBuses.map(
               (bus) {
@@ -608,9 +608,9 @@ class _StopDetailScreenState extends State<StopDetailScreen> {
   }
 }
 
-// ============================================================
-// LIVE BUS TILE
-// ============================================================
+
+
+
 
 class _LiveBusTile extends StatelessWidget {
   final VehiclePosition bus;

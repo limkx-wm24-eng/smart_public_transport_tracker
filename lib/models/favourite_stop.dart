@@ -1,5 +1,5 @@
-/// A stop the user has saved for quick access (e.g. their daily commute).
-/// Local-only data — never fetched from the network.
+
+
 class FavouriteStop {
   final String stopId;
   final String name;

@@ -11,9 +11,9 @@ import '../services/journey_planner_service.dart';
 import '../widgets/stop_list_tile.dart';
 import 'stop_detail_screen.dart';
 
-/// Search stops by name, save favourites, and — before the user types
-/// anything — show the closest stops to their current GPS location so
-/// they don't have to know a stop's name to get started.
+
+
+
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
 
@@ -80,7 +80,7 @@ class _SearchScreenState extends State<SearchScreen> {
     } finally { if (mounted) setState(() => _planningJourney = false); }
   }
 
-  /// The closest 8 stops to the user, nearest first.
+
   List<_NearbyStop> _nearestStops(List<Stop> allStops) {
     if (_myLocation == null) return [];
 

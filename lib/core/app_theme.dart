@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-/// Keep all styling decisions in one place so both members can
-/// build screens that look consistent without coordinating manually.
+
+
 class AppTheme {
   AppTheme._();
 
-  static const Color primary = Color(0xFF0B6E4F); // transit green
-  static const Color accent = Color(0xFFFFA630); // ETA / alert orange
+  static const Color primary = Color(0xFF0B6E4F);
+  static const Color accent = Color(0xFFFFA630);
 
   static ThemeData get light {
     return ThemeData(

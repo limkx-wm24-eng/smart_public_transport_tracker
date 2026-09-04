@@ -23,13 +23,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _confirmController = TextEditingController();
   final _pinController = TextEditingController();
 
-  // Simple, readable email check — not RFC-perfect, but enough to catch
-  // typos like missing "@" or missing domain.
+
+
   static final _emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
 
-  // Digits only, 9–11 digits long (covers Malaysian mobile/landline
-  // numbers with or without leading 0, with or without dashes/spaces
-  // stripped out before checking).
+
+
+
   static final _phoneDigitsRegex = RegExp(r'^\d{9,11}$');
 
   String? _validateName(String? value) {
@@ -99,8 +99,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   Future<void> _signUp() async {
-    // Runs every field's validator and shows red error text under any
-    // invalid field. Stops here if anything's wrong.
+
+
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
@@ -118,8 +118,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
     if (success) {
       if (auth.isLoggedIn) {
-        // Supabase returned a session immediately (email confirmation
-        // is OFF for this project) — the user is already signed in.
+
+
         await context.read<FavouritesProvider>().load();
         if (!mounted) return;
         Navigator.of(context).pushAndRemoveUntil(
@@ -127,9 +127,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
               (route) => false,
         );
       } else {
-        // Account was created but there's no session yet — Supabase's
-        // "Confirm email" setting is ON, so the user must verify their
-        // email before they can log in. Send them to the Login screen.
+
+
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(

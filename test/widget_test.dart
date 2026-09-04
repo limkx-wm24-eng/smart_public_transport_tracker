@@ -1,13 +1,13 @@
-// Basic smoke test.
-//
-// Note: SmartTransportApp (main.dart) calls Supabase.initialize() before
-// runApp(), and most screens (SplashScreen, HomeMapScreen, etc.) read
-// TransitProvider/AuthProvider/FavouritesProvider from context — which in
-// turn depend on that Supabase bootstrap having already run. None of that
-// is available in a plain widget-test environment, so this test instead
-// exercises StopListTile, a real, self-contained widget from the app that
-// needs no providers or backend calls, to check it renders correctly and
-// that its favourite toggle works.
+
+
+
+
+
+
+
+
+
+
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

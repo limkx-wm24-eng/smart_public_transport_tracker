@@ -7,9 +7,9 @@ import '../screens/search_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/ai_support_page.dart';
 
-/// Shell widget holding the bottom navigation bar.
-/// AI Support stays available as a draggable floating bubble so the main
-/// navigation is less crowded on mobile.
+
+
+
 class RootNav extends StatefulWidget {
   const RootNav({super.key});
 

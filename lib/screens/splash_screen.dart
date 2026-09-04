@@ -26,13 +26,13 @@ class _SplashScreenState extends State<SplashScreen> {
     final auth = context.read<AuthProvider>();
     final favourites = context.read<FavouritesProvider>();
 
-    // Transit data (stops/routes/live buses) doesn't require a login, so
-    // kick it off immediately rather than waiting on anything else first.
+
+
     final transitFuture = transit.initialise();
 
     if (!auth.isLoggedIn) {
-      // Nothing else to load for a logged-out user — just wait for
-      // transit data and head to the login screen.
+
+
       await transitFuture;
 
       if (!mounted) return;
@@ -42,10 +42,10 @@ class _SplashScreenState extends State<SplashScreen> {
       return;
     }
 
-    // Logged in: profile and favourites are independent of the transit
-    // data (and of each other), so load everything in parallel instead
-    // of one thing at a time — this is what was making the splash
-    // screen take noticeably longer for logged-in users.
+
+
+
+
     await Future.wait([
       transitFuture,
       auth.loadProfile(),
