@@ -10,8 +10,9 @@ class AppConstants {
   //   rapid-bus-kl, rapid-rail-kl, rapid-bus-penang, rapid-bus-kuantan,
   //   rapid-bus-mrtfeeder
   // ---------------------------------------------------------------------
-  static const String gtfsCategory = 'rapid-bus-kl';
-  //static const String gtfsCategory = 'rapid-bus-mrtfeeder';
+  // The Rapid KL city-bus live feed is currently not publishing vehicles.
+  // MRT feeder is the active Prasarana feed used by the live tracker.
+  static const String gtfsCategory = 'rapid-bus-mrtfeeder';
 
   static const String gtfsStaticBaseUrl =
       'https://api.data.gov.my/gtfs-static/prasarana';

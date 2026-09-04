@@ -93,7 +93,10 @@ class DatabaseService {
   // Stops cache (populated from GTFS-Static)
   // ------------------------------------------------------------------
 
-  Future<void> replaceStops(List<Stop> stops) async {
+  Future<void> replaceStops(
+    List<Stop> stops, {
+    String? category,
+  }) async {
     final db = await database;
     final batch = db.batch();
     batch.delete('stops');
@@ -103,6 +106,9 @@ class DatabaseService {
     }
     await batch.commit(noResult: true);
     await _setMeta('stops_last_synced', DateTime.now().toIso8601String());
+    if (category != null) {
+      await _setMeta('gtfs_static_category', category);
+    }
   }
 
   Future<List<Stop>> getAllStops() async {
@@ -112,6 +118,9 @@ class DatabaseService {
   }
 
   Future<bool> shouldRefreshStops() async {
+    final cachedCategory = await _getMeta('gtfs_static_category');
+    if (cachedCategory != AppConstants.gtfsCategory) return true;
+
     final lastSyncedStr = await _getMeta('stops_last_synced');
     if (lastSyncedStr == null) return true;
     final lastSynced = DateTime.tryParse(lastSyncedStr);

@@ -171,6 +171,7 @@ class TransitProvider extends ChangeNotifier with WidgetsBindingObserver {
 
         await _db.replaceStops(
           freshStops,
+          category: AppConstants.gtfsCategory,
         );
 
         await _db.replaceRoutes(
